@@ -697,4 +697,5 @@ if os.path.isdir(config.WEB_DIST):
     def spa(full: str):
         f = f'{config.WEB_DIST}/{full}'
         if full and os.path.isfile(f): return FileResponse(f)
-        return FileResponse(f'{config.WEB_DIST}/index.html')
+        # jamais en cache : après une mise à jour, le navigateur doit charger la nouvelle interface
+        return FileResponse(f'{config.WEB_DIST}/index.html', headers={'Cache-Control': 'no-cache, no-store, must-revalidate'})
