@@ -1,6 +1,6 @@
 // Panneau Propriétés (façon « Effect Controls ») : réglages de l'élément sélectionné, en groupes repliables.
 // Sans sélection : réglages du projet (style, consignes pour l'IA, personnes, mixage, glossaire).
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { fmt } from '../lib/format';
 import { Icon } from '../lib/icons';
@@ -215,6 +215,7 @@ function ClipGroups({ clip }: { clip: ClipItem }) {
 
 function FxGroup({ clip }: { clip: ClipItem }) {
   const { props, r, style } = useComp();
+  const sel = useStore((s) => s.sel);
   const frame = useStore((s) => s.frame);
   const library = useStore((s) => s.library);
   const seek = useStore((s) => s.seek);
@@ -232,7 +233,7 @@ function FxGroup({ clip }: { clip: ClipItem }) {
   };
   const goSrc = (t: number) => { const f = srcToFrame(r, clip.id, t); if (f !== null) seek(f); };
   return (
-    <Group title={`Accentuations${clip.fx.length ? ` (${clip.fx.length})` : ''}`} closed={!clip.fx.length}>
+    <Group key={sel.fxId ? 'fx-open' : 'fx'} title={`Accentuations${clip.fx.length ? ` (${clip.fx.length})` : ''}`} closed={!clip.fx.length}>
       <div className="row wrap" style={{ gap: 4 }}>
         <button className="btn sm" onClick={() => add({ kind: 'zoom', target: 'face', scale: style.zoom.face })}>{tx('Zoom visage')}</button>
         <button className="btn sm" onClick={() => add({ kind: 'zoom', target: 'center', scale: style.zoom.center })}>{tx('Zoom centre')}</button>
@@ -252,6 +253,9 @@ function FxGroup({ clip }: { clip: ClipItem }) {
 
 function FxRow({ f, clipId, onGo }: { f: Fx; clipId: string; onGo: (t: number) => void }) {
   const library = useStore((s) => s.library);
+  const on = useStore((s) => s.sel.fxId === f.id);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (on) box.current?.scrollIntoView({ block: 'nearest' }); }, [on]);
   const patch = usePatch({ kind: 'item', id: clipId });
   const P = (fn: (x: Fx) => void, m?: string) => patch((c) => { const x = (c as ClipItem).fx.find((y) => y.id === f.id); if (x) fn(x); }, m ? `fx:${f.id}:${m}` : undefined);
   const del = () => patch((c) => { (c as ClipItem).fx = (c as ClipItem).fx.filter((y) => y.id !== f.id); });
@@ -260,9 +264,9 @@ function FxRow({ f, clipId, onGo }: { f: Fx; clipId: string; onGo: (t: number) =
     <input className="input" type="number" step={step} style={{ width: w }} value={v} title={title} onChange={(e) => set(Number(e.target.value))} />
   );
   return (
-    <div className="col" style={{ gap: 4, padding: '6px 0', borderTop: '1px solid var(--border)' }}>
+    <div ref={box} className="col" style={{ gap: 4, padding: '6px 4px', borderTop: '1px solid var(--border)', background: on ? 'var(--accent-bg)' : undefined, borderRadius: on ? 4 : undefined }}>
       <div className="row" style={{ gap: 6 }}>
-        <b className="small" style={{ cursor: 'pointer', minWidth: 62 }} onClick={() => onGo(t)} title={tx('Aller à cet effet')}>{FX_LABEL[f.kind]}</b>
+        <b className="small" style={{ cursor: 'pointer', minWidth: 62 }} onClick={() => { useStore.getState().select({ itemId: clipId, fxId: f.id }); onGo(t); }} title={tx('Aller à cet effet')}>{FX_LABEL[f.kind]}</b>
         {'t0' in f ? <><TimeInput width={70} value={f.t0} onChange={(v) => P((x) => { if ('t0' in x) x.t0 = v; })} /><TimeInput width={70} value={f.t1} onChange={(v) => P((x) => { if ('t1' in x) x.t1 = v; })} /></>
           : <TimeInput width={70} value={f.t} onChange={(v) => P((x) => { if ('t' in x) x.t = v; })} />}
         <span className="spacer" />

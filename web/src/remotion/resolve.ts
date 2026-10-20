@@ -34,11 +34,13 @@ export interface CapEv {
   speaker: string | null;
 }
 
-export interface ZoomEv { from: number; dur: number; target: [number, number]; scale: number; auto?: boolean }
-export interface ShakeEv { from: number; dur: number; amp: number }
-export interface TintEv { from: number; dur: number; mode: 'bw' | 'red' | 'flash' }
-export interface TextEv { from: number; dur: number; text: string; style: 'big' | 'note' | 'rip' }
-export interface SfxEv { key: string; from: number; dur: number; url: string; trim: number; volume: number; name: string }
+/** effet d'un plan d'où vient l'évènement (pour le sélectionner / le déplacer dans la timeline) */
+export interface FxRef { itemId: string; fxId: string }
+export interface ZoomEv { from: number; dur: number; target: [number, number]; scale: number; auto?: boolean; ref?: FxRef }
+export interface ShakeEv { from: number; dur: number; amp: number; ref?: FxRef }
+export interface TintEv { from: number; dur: number; mode: 'bw' | 'red' | 'flash'; ref?: FxRef }
+export interface TextEv { from: number; dur: number; text: string; style: 'big' | 'note' | 'rip'; ref?: FxRef }
+export interface SfxEv { key: string; from: number; dur: number; url: string; trim: number; volume: number; name: string; ref?: FxRef }
 export interface MusicEv { key: string; from: number; dur: number; url: string; volume: number; offset: number; duck: number; name: string }
 export interface CardEv { id: string; from: number; dur: number; item: Extract<Item, { type: 'card' }> }
 export interface FreezeEv { id: string; from: number; dur: number; src: string; t: number; target: [number, number]; scale: number }
@@ -206,7 +208,7 @@ export function resolve(props: CompositionProps): Resolved {
   };
   const TRANS_SFX: Partial<Record<TransitionKind, string>> = { whip: 'whoosh', zoom: 'whoosh', glitch: 'glitch', flash: 'pop' };
   const rot: Record<string, number> = {};
-  const addSfx = (name: string, atSec: number, db: number, key: string) => {
+  const addSfx = (name: string, atSec: number, db: number, key: string, ref?: FxRef) => {
     const t: SfxType | undefined = lib?.[name];
     if (!t || !t.variants.length) return;
     const i = rot[name] ?? 0;
@@ -214,7 +216,7 @@ export function resolve(props: CompositionProps): Resolved {
     const v = t.variants[i % t.variants.length];
     const from = Math.round((atSec - v.anchor) * fps);
     r.sfx.push({ key, name, from: Math.max(0, from), dur: Math.max(1, Math.round(v.dur * fps)), url: v.url,
-      trim: v.start + (from < 0 ? -from / fps : 0), volume: dbToGain(v.gainDb + db + style.sfxDb + (r.mix.sfxDb || 0)) });
+      trim: v.start + (from < 0 ? -from / fps : 0), volume: dbToGain(v.gainDb + db + style.sfxDb + (r.mix.sfxDb || 0)), ref });
   };
   const defaultColor = style.captions.color;
   const colorOf = (spk: string | null) => (spk && speakers?.[spk]?.color) || defaultColor;
@@ -271,26 +273,27 @@ export function resolve(props: CompositionProps): Resolved {
       }
 
       for (const f of it.fx) {
+        const ref = { itemId: it.id, fxId: f.id };
         if (f.kind === 'zoom') {
           const a = mapT(f.t0); const b = mapT(f.t1);
           if (b > a) {
             const target = targetOf(f.target, it, style);
-            r.zooms.push({ from: Math.round(a * fps), dur: Math.max(1, Math.round((b - a) * fps)), target, scale: f.scale });
+            r.zooms.push({ from: Math.round(a * fps), dur: Math.max(1, Math.round((b - a) * fps)), target, scale: f.scale, ref });
             if (style.whooshOnFaceZoom && f.target === 'face') addSfx('whoosh', a, -8, `${f.id}:w`);
           }
         } else if (f.kind === 'shake') {
           const a = mapT(f.t0); const b = mapT(f.t1);
-          if (b > a) r.shakes.push({ from: Math.round(a * fps), dur: Math.round((b - a) * fps), amp: f.amp });
+          if (b > a) r.shakes.push({ from: Math.round(a * fps), dur: Math.round((b - a) * fps), amp: f.amp, ref });
         } else if (f.kind === 'tint') {
           const a = mapT(f.t0); const b = mapT(f.t1);
-          if (b > a) r.tints.push({ from: Math.round(a * fps), dur: Math.round((b - a) * fps), mode: f.mode });
+          if (b > a) r.tints.push({ from: Math.round(a * fps), dur: Math.round((b - a) * fps), mode: f.mode, ref });
         } else if (f.kind === 'sfx') {
           const a = mapT(f.t);
-          addSfx(f.name, a, f.db, f.id);
+          addSfx(f.name, a, f.db, f.id, ref);
           if (style.shakeOnImpact && IMPACTS.has(f.name)) r.shakes.push({ from: Math.round(a * fps), dur: Math.round(0.28 * fps), amp: 12 });
         } else if (f.kind === 'text') {
           const a = mapT(f.t);
-          r.texts.push({ from: Math.round(a * fps), dur: Math.round(f.dur * fps), text: f.text, style: f.style });
+          r.texts.push({ from: Math.round(a * fps), dur: Math.round(f.dur * fps), text: f.text, style: f.style, ref });
           if (f.style === 'rip') r.tints.push({ from: Math.round(a * fps), dur: Math.round(f.dur * fps), mode: 'bw' });
           if (f.style === 'big') addSfx('pop', a, -2, `${f.id}:p`);
         } else if (f.kind === 'censor') {

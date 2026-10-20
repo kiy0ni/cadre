@@ -112,8 +112,15 @@ export const api = {
 /** attend la fin d'une tâche en relayant ses évènements */
 export async function followJob(id: string, onEvent?: (e: NonNullable<JobInfo['events']>[number], j: JobInfo) => void, onTick?: (j: JobInfo) => void): Promise<JobInfo> {
   let since = 0;
+  let fails = 0;
   for (;;) {
-    const j = await api.job(id, since);
+    let j: JobInfo;
+    try { j = await api.job(id, since); fails = 0; } catch (e) {
+      // coupure passagère (moteur occupé, réseau) : on réessaie un moment avant d'abandonner
+      if (++fails > 15) throw e;
+      await new Promise((r) => setTimeout(r, 1000));
+      continue;
+    }
     for (const e of j.events || []) onEvent?.(e, j);
     since += (j.events || []).length;
     onTick?.(j);

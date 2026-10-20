@@ -278,35 +278,45 @@ export const useStore = create<S>((set, get) => {
       set({ aiJob: job, live: { user: null, blocks: [], usage: null, startedAt: Date.now(), logs: [] }, past: [...get().past.slice(-99), before], future: [] });
       get().watchJob(job);
       const patch = (fn: (l: LiveTurn) => LiveTurn) => { const l = get().live; if (l) set({ live: fn(l) }); };
-      const done = await followJob(job, (e: JobEvent) => {
-        if (e.type === 'project') { if (get().aiJob === job) set({ project: e.project as Project }); }
-        else if (e.type === 'conversation') { set({ aiConv: e.id as string }); patch((l) => ({ ...l, user: e.userMessage as LiveTurn['user'] })); }
-        else if (e.type === 'delta') patch((l) => {
-          const b = [...l.blocks];
-          const last = b[b.length - 1] as (Block & { open?: boolean }) | undefined;
-          if (last && last.type === 'text' && last.open) b[b.length - 1] = { ...last, text: last.text + String(e.text) } as Block;
-          else b.push({ type: 'text', text: String(e.text), open: true } as Block);
-          return { ...l, blocks: b };
+      let done: { status: string; error?: string | null };
+      try {
+        done = await followJob(job, (e: JobEvent) => {
+          if (e.type === 'project') { if (get().aiJob === job) set({ project: e.project as Project }); }
+          else if (e.type === 'conversation') { set({ aiConv: e.id as string }); patch((l) => ({ ...l, user: e.userMessage as LiveTurn['user'] })); }
+          else if (e.type === 'delta') patch((l) => {
+            const b = [...l.blocks];
+            const last = b[b.length - 1] as (Block & { open?: boolean }) | undefined;
+            if (last && last.type === 'text' && last.open) b[b.length - 1] = { ...last, text: last.text + String(e.text) } as Block;
+            else b.push({ type: 'text', text: String(e.text), open: true } as Block);
+            return { ...l, blocks: b };
+          });
+          else if (e.type === 'delta_end') patch((l) => ({ ...l, blocks: l.blocks.map((x) => { const y = { ...x } as Block & { open?: boolean }; delete y.open; return y; }) }));
+          else if (e.type === 'note') patch((l) => {
+            const b = [...l.blocks];
+            const last = b[b.length - 1];
+            if (last && last.type === 'thinking') b[b.length - 1] = { ...last, text: last.text + String(e.text) };
+            else b.push({ type: 'thinking', text: String(e.text) });
+            return { ...l, blocks: b };
+          });
+          else if (e.type === 'tool_start') patch((l) => ({ ...l, blocks: [...l.blocks, e.block as Block] }));
+          else if (e.type === 'approval' || e.type === 'tool_status' || e.type === 'tool_end') patch((l) => ({
+            ...l, blocks: l.blocks.map((x) => (x.type === 'tool' && x.id === e.id
+              ? { ...x, status: (e.type === 'approval' ? 'pending' : e.status) as 'done', ...(e.result !== undefined ? { result: String(e.result) } : {}) } : x)),
+          }));
+          else if (e.type === 'usage') patch((l) => ({ ...l, usage: e.usage as Usage }));
+          else if (e.type === 'log') patch((l) => ({ ...l, logs: [...l.logs.slice(-20), String(e.text)] }));
         });
-        else if (e.type === 'delta_end') patch((l) => ({ ...l, blocks: l.blocks.map((x) => { const y = { ...x } as Block & { open?: boolean }; delete y.open; return y; }) }));
-        else if (e.type === 'note') patch((l) => {
-          const b = [...l.blocks];
-          const last = b[b.length - 1];
-          if (last && last.type === 'thinking') b[b.length - 1] = { ...last, text: last.text + String(e.text) };
-          else b.push({ type: 'thinking', text: String(e.text) });
-          return { ...l, blocks: b };
-        });
-        else if (e.type === 'tool_start') patch((l) => ({ ...l, blocks: [...l.blocks, e.block as Block] }));
-        else if (e.type === 'approval' || e.type === 'tool_status' || e.type === 'tool_end') patch((l) => ({
-          ...l, blocks: l.blocks.map((x) => (x.type === 'tool' && x.id === e.id
-            ? { ...x, status: (e.type === 'approval' ? 'pending' : e.status) as 'done', ...(e.result !== undefined ? { result: String(e.result) } : {}) } : x)),
-        }));
-        else if (e.type === 'usage') patch((l) => ({ ...l, usage: e.usage as Usage }));
-        else if (e.type === 'log') patch((l) => ({ ...l, logs: [...l.logs.slice(-20), String(e.text)] }));
-      });
-      const fresh = await api.project(p.id);
-      histMeta.set(fresh.project, { label: `Assistant : ${prompt.split('\n')[0].slice(0, 60)}`, t: Date.now() });
-      set({ aiJob: null, live: null, project: fresh.project, words: fresh.words });
+      } catch (e) {
+        done = { status: 'error', error: (e as Error).message };
+      }
+      // quoi qu'il arrive, l'éditeur redevient modifiable (sinon toute retouche est refusée jusqu'à la réouverture)
+      try {
+        const fresh = await api.project(p.id);
+        histMeta.set(fresh.project, { label: `Assistant : ${prompt.split('\n')[0].slice(0, 60)}`, t: Date.now() });
+        set({ aiJob: null, live: null, project: fresh.project, words: fresh.words });
+      } catch {
+        set({ aiJob: null, live: null });
+      }
       // l'assistant a pu lancer des tâches (export…) : on les suit aussi
       const js = await api.jobs(p.id).catch(() => []);
       for (const j of js) if (j.status === 'queued' || j.status === 'running') get().watchJob(j.id);
