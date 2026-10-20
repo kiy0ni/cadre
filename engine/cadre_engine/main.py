@@ -348,16 +348,6 @@ def upload_source(pid: str, file: UploadFile = File(...)):
     return {'source': s}
 
 
-@app.post('/api/projects/{pid}/logo')
-def upload_logo(pid: str, file: UploadFile = File(...)):
-    with _plock:
-        p = _project(pid)
-        path = media.save_upload(p, 'logo_' + file.filename, file.file)
-        p['logo'] = path; p['logoUrl'] = media.file_url(path)
-        store.save_project(p)
-    return {'logo': path, 'logoUrl': p['logoUrl']}
-
-
 @app.delete('/api/projects/{pid}/sources/{sid}')
 def delete_source(pid: str, sid: str):
     with _plock:
@@ -372,7 +362,7 @@ ACTIONS = {
     'proxy': ('aperçu léger', 'proxy'),
     'transcribe': ('transcription', 'transcript'),
     'speakers': ('qui parle', 'speakers'),
-    'stems': ('voix / jeu séparés', 'stems'),
+    'stems': ('voix / fond séparés', 'stems'),
 }
 
 

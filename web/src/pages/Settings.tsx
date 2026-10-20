@@ -177,7 +177,7 @@ function AnalysisSection({ sys, settings, onChange }: { sys: SystemInfo; setting
           </select></label>
       </Card>
       <Card title={tx('Reconnaissance des voix')} right={sys.voices ? <span className="badge ok">{tx('installée')}</span> : <span className="badge">{tx('non installée')}</span>}>
-        <p className="small muted">{tx('Reconnaît qui parle et sépare la voix du fond sonore (jeu, musique). Téléchargement d\'environ 2 Go.')}</p>
+        <p className="small muted">{tx('Reconnaît qui parle et sépare la voix du fond sonore (musique, ambiance, jeu…). Téléchargement d\'environ 2 Go.')}</p>
         {!sys.voices ? (
           <div className="row"><button className="btn" onClick={install} disabled={!!busy}>{busy ? <><span className="spin" /> <span className="ellipsis" style={{ maxWidth: 360 }}>{busy}</span></> : tx('Installer')}</button></div>
         ) : null}

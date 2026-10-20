@@ -553,7 +553,7 @@
  "Rechercher": "Search",
  "Rechercher un effet": "Search effects",
  "Reconnaissance des voix": "Voice recognition",
- "Reconnaît qui parle et sépare la voix du fond sonore (jeu, musique). Téléchargement d'environ 2 Go.": "Recognizes who's speaking and separates voice from background audio (game, music). About a 2 GB download.",
+ "Reconnaît qui parle et sépare la voix du fond sonore (musique, ambiance, jeu…). Téléchargement d'environ 2 Go.": "Recognizes who is speaking and separates the voice from the background (music, ambience, game…). About a 2 GB download.",
  "Reconnaître qui parle": "Recognize speakers",
  "Recréer": "Regenerate",
  "Recréer depuis la transcription": "Regenerate from transcript",
@@ -826,5 +826,11 @@
  "Se connecter": "Sign in",
  "Se déconnecter de cet appareil": "Sign out of this device",
  "défini": "set",
- "non défini : accès à distance fermé": "not set: remote access closed"
+ "non défini : accès à distance fermé": "not set: remote access closed",
+ "Ancien style": "Legacy style",
+ "Bandeau": "Banner",
+ "Personnalisé · {0}×{1}": "Custom · {0}×{1}",
+ "Personnalisé…": "Custom…",
+ "Sous-texte": "Subtext",
+ "Séquence": "Sequence"
 }

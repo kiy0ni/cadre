@@ -1,6 +1,6 @@
 // Panneau Propriétés (façon « Effect Controls ») : réglages de l'élément sélectionné, en groupes repliables.
 // Sans sélection : réglages du projet (style, consignes pour l'IA, personnes, mixage, glossaire).
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { fmt } from '../lib/format';
 import { Icon } from '../lib/icons';
@@ -16,6 +16,7 @@ import { FX_CATS, FX_DEFS, fxDef, newFx } from '../remotion/effects';
 import type { VFx } from '../types';
 import { Dropdown } from '../lib/ui';
 import { tx } from '../lib/i18n';
+import { FONTS } from '../remotion/fonts';
 
 export type Ref = { kind: 'item'; id: string } | { kind: 'clip'; id: string };
 type Patch = (fn: (t: Item | OClip) => void, merge?: string) => void;
@@ -31,7 +32,7 @@ export function usePatch(ref: Ref | null): Patch {
   return (fn, merge) => { if (ref) update((p) => { const t = findRef(p, ref); if (t) fn(t); }, merge ? `${ref.id}:${merge}` : undefined); };
 }
 
-export const FONTS_LIST = ['Montserrat', 'Inter', 'Poppins', 'Bebas Neue'];
+export const FONTS_LIST = Object.keys(FONTS);
 export const TRANSITIONS: [TransitionKind | 'none', string][] = [['none', tx('Aucune')], ['fade', tx('Fondu au noir')], ['flash', tx('Flash blanc')], ['zoom', tx('Zoom')], ['whip', tx('Filé')], ['glitch', tx('Glitch')], ['blur', tx('Flou')]];
 const FX_LABEL: Record<Fx['kind'], string> = { zoom: tx('Zoom'), shake: tx('Secousse'), tint: tx('Teinte'), sfx: tx('Son'), text: tx('Texte'), cut: tx('Coupe'), keep: tx('Garder'), speed: tx('Vitesse'), censor: tx('Bip') };
 
@@ -214,6 +215,7 @@ function ClipGroups({ clip }: { clip: ClipItem }) {
 
 function FxGroup({ clip }: { clip: ClipItem }) {
   const { props, r, style } = useComp();
+  const sel = useStore((s) => s.sel);
   const frame = useStore((s) => s.frame);
   const library = useStore((s) => s.library);
   const seek = useStore((s) => s.seek);
@@ -231,7 +233,7 @@ function FxGroup({ clip }: { clip: ClipItem }) {
   };
   const goSrc = (t: number) => { const f = srcToFrame(r, clip.id, t); if (f !== null) seek(f); };
   return (
-    <Group title={`Accentuations${clip.fx.length ? ` (${clip.fx.length})` : ''}`} closed={!clip.fx.length}>
+    <Group key={sel.fxId ? 'fx-open' : 'fx'} title={`Accentuations${clip.fx.length ? ` (${clip.fx.length})` : ''}`} closed={!clip.fx.length}>
       <div className="row wrap" style={{ gap: 4 }}>
         <button className="btn sm" onClick={() => add({ kind: 'zoom', target: 'face', scale: style.zoom.face })}>{tx('Zoom visage')}</button>
         <button className="btn sm" onClick={() => add({ kind: 'zoom', target: 'center', scale: style.zoom.center })}>{tx('Zoom centre')}</button>
@@ -251,6 +253,9 @@ function FxGroup({ clip }: { clip: ClipItem }) {
 
 function FxRow({ f, clipId, onGo }: { f: Fx; clipId: string; onGo: (t: number) => void }) {
   const library = useStore((s) => s.library);
+  const on = useStore((s) => s.sel.fxId === f.id);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (on) box.current?.scrollIntoView({ block: 'nearest' }); }, [on]);
   const patch = usePatch({ kind: 'item', id: clipId });
   const P = (fn: (x: Fx) => void, m?: string) => patch((c) => { const x = (c as ClipItem).fx.find((y) => y.id === f.id); if (x) fn(x); }, m ? `fx:${f.id}:${m}` : undefined);
   const del = () => patch((c) => { (c as ClipItem).fx = (c as ClipItem).fx.filter((y) => y.id !== f.id); });
@@ -259,9 +264,9 @@ function FxRow({ f, clipId, onGo }: { f: Fx; clipId: string; onGo: (t: number) =
     <input className="input" type="number" step={step} style={{ width: w }} value={v} title={title} onChange={(e) => set(Number(e.target.value))} />
   );
   return (
-    <div className="col" style={{ gap: 4, padding: '6px 0', borderTop: '1px solid var(--border)' }}>
+    <div ref={box} className="col" style={{ gap: 4, padding: '6px 4px', borderTop: '1px solid var(--border)', background: on ? 'var(--accent-bg)' : undefined, borderRadius: on ? 4 : undefined }}>
       <div className="row" style={{ gap: 6 }}>
-        <b className="small" style={{ cursor: 'pointer', minWidth: 62 }} onClick={() => onGo(t)} title={tx('Aller à cet effet')}>{FX_LABEL[f.kind]}</b>
+        <b className="small" style={{ cursor: 'pointer', minWidth: 62 }} onClick={() => { useStore.getState().select({ itemId: clipId, fxId: f.id }); onGo(t); }} title={tx('Aller à cet effet')}>{FX_LABEL[f.kind]}</b>
         {'t0' in f ? <><TimeInput width={70} value={f.t0} onChange={(v) => P((x) => { if ('t0' in x) x.t0 = v; })} /><TimeInput width={70} value={f.t1} onChange={(v) => P((x) => { if ('t1' in x) x.t1 = v; })} /></>
           : <TimeInput width={70} value={f.t} onChange={(v) => P((x) => { if ('t' in x) x.t = v; })} />}
         <span className="spacer" />
@@ -279,7 +284,7 @@ function FxRow({ f, clipId, onGo }: { f: Fx; clipId: string; onGo: (t: number) =
         ) : f.kind === 'shake' ? <><span className="small dim">{tx('force')}</span>{num(f.amp, (v) => P((x) => { if (x.kind === 'shake') x.amp = v; }, 'amp'), 1)}</>
           : f.kind === 'tint' ? (
             <select className="input" style={{ width: 100 }} value={f.mode} onChange={(e) => P((x) => { if (x.kind === 'tint') x.mode = e.target.value as 'bw'; })}>
-              <option value="bw">{tx('Noir et blanc')}</option><option value="red">{tx('Rouge')}</option><option value="flash">{tx('Flash')}</option>
+              <option value="bw">{tx('Noir et blanc')}</option><option value="flash">{tx('Flash')}</option>{f.mode === 'red' ? <option value="red">{tx('Rouge')}</option> : null}
             </select>
           ) : f.kind === 'sfx' ? (
             <>
@@ -292,7 +297,7 @@ function FxRow({ f, clipId, onGo }: { f: Fx; clipId: string; onGo: (t: number) =
             <>
               <input className="input grow" value={f.text} onChange={(e) => P((x) => { if (x.kind === 'text') x.text = e.target.value; }, 'txt')} />
               <select className="input" style={{ width: 70 }} value={f.style} onChange={(e) => P((x) => { if (x.kind === 'text') x.style = e.target.value as 'big'; })}>
-                <option value="big">{tx('gros')}</option><option value="note">{tx('note')}</option><option value="rip">RIP</option>
+                <option value="big">{tx('gros')}</option><option value="note">{tx('note')}</option>{f.style === 'rip' ? <option value="rip">RIP</option> : null}
               </select>
             </>
           ) : f.kind === 'speed' ? <><span className="small dim">{tx('×')}</span>{num(f.rate, (v) => P((x) => { if (x.kind === 'speed') x.rate = v || 1; }, 'rate'), 0.25)}</> : null}
@@ -365,11 +370,22 @@ function CardGroup({ card }: { card: CardItem }) {
     <Group title={tx('Carton')}>
       <Row label={tx('Style')}>
         <select className="input" value={card.style} onChange={(e) => P((c) => { c.style = e.target.value as CardItem['style']; })}>
-          <option value="title">{tx('Titre')}</option><option value="chapter">{tx('Chapitre')}</option><option value="narr">{tx('Narration')}</option><option value="logo">{tx('Logo')}</option><option value="twitch">{tx('Réseaux')}</option>
+          <option value="title">{tx('Titre')}</option><option value="chapter">{tx('Chapitre')}</option><option value="narr">{tx('Texte')}</option>
+          {card.style === 'logo' || card.style === 'twitch' ? <option value={card.style}>{tx('Ancien style')}</option> : null}
         </select>
       </Row>
       <BigText title={tx('Texte du carton')} value={card.text} onChange={(v) => P((c) => { c.text = v; }, 'text')} placeholder={tx('Texte (*mot* en couleur)')} />
-      <Row label="Sous-texte"><input className="input" value={card.sub || ''} onChange={(e) => P((c) => { c.sub = e.target.value; }, 'sub')} /></Row>
+      <Row label={tx('Sous-texte')}><input className="input" value={card.sub || ''} onChange={(e) => P((c) => { c.sub = e.target.value; }, 'sub')} /></Row>
+      <Row label={tx('Fond')}><input type="color" value={card.bg || '#000000'} onChange={(e) => P((c) => { c.bg = e.target.value; }, 'bg')} /></Row>
+      <Row label={tx('Texte')}><input type="color" value={card.color || '#ffffff'} onChange={(e) => P((c) => { c.color = e.target.value; }, 'color')} /></Row>
+      {card.style === 'title' ? (
+        <Row label={tx('Bandeau')}>
+          <div className="row" style={{ gap: 6 }}>
+            <label className="check"><input type="checkbox" checked={card.band !== ''} onChange={(e) => P((c) => { c.band = e.target.checked ? '#E8232A' : ''; })} /></label>
+            {card.band !== '' ? <input type="color" value={card.band || '#E8232A'} onChange={(e) => P((c) => { c.band = e.target.value; }, 'band')} /> : null}
+          </div>
+        </Row>
+      ) : null}
       <Prop label={tx('Durée')} value={card.dur} min={0.2} max={10} step={0.1} def={2} unit=" s" onChange={(v) => P((c) => { c.dur = v; }, 'dur')} />
       <Row label={tx('Sons du style')}><label className="check"><input type="checkbox" checked={card.autoSfx !== false} onChange={(e) => P((c) => { c.autoSfx = e.target.checked; })} /> {tx('automatiques')}</label></Row>
       {(card.sounds || []).map((so) => (
@@ -538,14 +554,17 @@ function MusicProps({ id }: { id: string }) {
 }
 
 // ---------------------------------------------------------------- projet (rien de sélectionné)
+const SEQ_FORMATS: [string, string][] = [
+  ['1920x1080', '16:9 · 1920×1080'], ['3840x2160', '16:9 · 3840×2160'], ['1280x720', '16:9 · 1280×720'], ['1080x1920', '9:16 · 1080×1920'],
+  ['1080x1080', '1:1 · 1080×1080'], ['1080x1350', '4:5 · 1080×1350'], ['1440x1080', '4:3 · 1440×1080'], ['2048x858', '2.39:1 · 2048×858'],
+];
+
 function ProjectProps() {
   const { props, r } = useComp();
   const p = props.project;
   const update = useStore((s) => s.update);
   const packs = useStore((s) => s.packs);
   const speakers = useStore((s) => s.speakers);
-  const notify = useStore((s) => s.notify);
-  const logo = useRef<HTMLInputElement>(null);
   const [gloss, setGloss] = useState(Object.entries(p.glossary || {}).map(([k, v]) => `${k} = ${v}`).join('\n'));
   const mix = p.mix || {};
   const M = (k: 'voiceDb' | 'musicDb' | 'sfxDb', v: number) => update((x) => { x.mix = { ...(x.mix || {}), [k]: v }; }, `mix:${k}`);
@@ -555,12 +574,8 @@ function ProjectProps() {
     const change = (pk.format.width !== p.format.width || pk.format.height !== p.format.height) && confirm(tx('Le style « {0} » est en {1}×{2}. Changer aussi le format du projet ?', pk.name, pk.format.width, pk.format.height));
     update((x) => { x.packId = id; if (change) x.format = { ...pk.format }; });
   };
-  const upLogo = async (f: File | undefined) => {
-    if (!f) return;
-    const res = await api.uploadLogo(p.id, f);
-    useStore.setState({ project: { ...useStore.getState().project!, logo: res.logo, logoUrl: res.logoUrl } });
-    notify(tx('Logo ajouté'));
-  };
+  const fmtKey = `${p.format.width}x${p.format.height}`;
+  const custom = !SEQ_FORMATS.some(([v]) => v === fmtKey);
   return (
     <>
       <div className="toolbar"><b style={{ paddingLeft: 4 }}>{tx('Projet')}</b><span className="spacer" /><span className="small dim">{p.format.width}×{p.format.height} · {p.format.fps} i/s · {fmt(r.duration / r.fps, 0)}</span></div>
@@ -571,9 +586,24 @@ function ProjectProps() {
           <Row label={tx('Style')}>
             <select className="input" value={p.packId} onChange={(e) => setPack(e.target.value)}>{packs.map((pk) => <option key={pk.id} value={pk.id}>{pk.name}</option>)}</select>
           </Row>
+        </Group>
+        <Group title={tx('Séquence')}>
           <Row label={tx('Format')}>
-            <select className="input" value={`${p.format.width}x${p.format.height}`} onChange={(e) => { const [w, h] = e.target.value.split('x').map(Number); update((x) => { x.format = { ...x.format, width: w, height: h }; }); }}>
-              {[['1920x1080', tx('16:9 · 1920×1080')], ['3840x2160', tx('16:9 · 3840×2160')], ['1080x1920', tx('9:16 · 1080×1920')], ['1080x1080', tx('1:1 · 1080×1080')], ['1080x1350', tx('4:5 · 1080×1350')]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            <select className="input" value={custom ? 'custom' : fmtKey} onChange={(e) => { if (e.target.value === 'custom') return; const [w, h] = e.target.value.split('x').map(Number); update((x) => { x.format = { ...x.format, width: w, height: h }; }); }}>
+              {SEQ_FORMATS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              <option value="custom">{custom ? tx('Personnalisé · {0}×{1}', p.format.width, p.format.height) : tx('Personnalisé…')}</option>
+            </select>
+          </Row>
+          <Row label={tx('Taille')}>
+            <div className="row" style={{ gap: 4 }}>
+              <input className="input" type="number" min={16} step={2} style={{ width: 70 }} value={p.format.width} onChange={(e) => { const v = Math.round(Number(e.target.value) / 2) * 2; if (v >= 16) update((x) => { x.format = { ...x.format, width: v }; }, 'fmt:w'); }} />
+              <span className="dim">×</span>
+              <input className="input" type="number" min={16} step={2} style={{ width: 70 }} value={p.format.height} onChange={(e) => { const v = Math.round(Number(e.target.value) / 2) * 2; if (v >= 16) update((x) => { x.format = { ...x.format, height: v }; }, 'fmt:h'); }} />
+            </div>
+          </Row>
+          <Row label={tx('Images / s')}>
+            <select className="input" value={p.format.fps} onChange={(e) => update((x) => { x.format = { ...x.format, fps: Number(e.target.value) }; })}>
+              {[...new Set([24, 25, 30, 50, 60, p.format.fps])].sort((a, b) => a - b).map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
           </Row>
         </Group>
@@ -609,14 +639,6 @@ function ProjectProps() {
         <Group title={tx('Glossaire de transcription')} closed>
           <textarea className="input mono" value={gloss} onChange={(e) => setGloss(e.target.value)} placeholder={tx('mot mal entendu = bonne orthographe')}
             onBlur={() => update((x) => { x.glossary = Object.fromEntries(gloss.split('\n').map((l) => l.split('=').map((s) => s.trim())).filter((kv) => kv.length === 2 && kv[0] && kv[1])); })} />
-        </Group>
-        <Group title={tx('Logo')} closed={!p.logoUrl}>
-          <div className="row">
-            {p.logoUrl ? <img src={p.logoUrl} style={{ maxHeight: 40, maxWidth: 140, background: '#000', padding: 3, borderRadius: 3 }} alt="" /> : <span className="small dim">{tx('Aucun')}</span>}
-            <span className="spacer" />
-            <button className="btn sm" onClick={() => logo.current?.click()}>{tx('Choisir…')}</button>
-            <input ref={logo} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => upLogo(e.target.files?.[0])} />
-          </div>
         </Group>
       </div>
     </>

@@ -112,6 +112,9 @@ export interface CardItem {
   sub?: string;
   style: 'logo' | 'twitch' | 'narr' | 'title' | 'chapter';
   image?: string | null;
+  bg?: string; // fond (défaut : noir)
+  color?: string; // texte (défaut : blanc)
+  band?: string; // bandeau derrière un titre ('' = aucun ; défaut : rouge)
   autoSfx?: boolean; // sons automatiques du style de carton (défaut : oui)
   sounds?: { id: string; name: string; at: number; db: number }[]; // sons posés sur le carton (at : s depuis son début)
 }

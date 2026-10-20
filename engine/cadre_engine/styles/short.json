@@ -41,7 +41,7 @@
    "face": 1.35,
    "center": 1.2
   },
-  "shakeOnImpact": true,
+  "shakeOnImpact": false,
   "whooshOnFaceZoom": false,
   "music": {
    "db": -18,

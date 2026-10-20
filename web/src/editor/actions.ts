@@ -79,6 +79,10 @@ export function deleteSelection() {
     st.update((x) => { const c = x.timeline.find((i) => i.id === s.itemId) as ClipItem | undefined; if (c) c.captions = c.captions.filter((k) => k.id !== s.capId); }, undefined, tx('Suppression'));
     st.select({ itemId: s.itemId });
     return;
+  } else if (s.fxId && s.itemId) {
+    st.update((x) => { const c = x.timeline.find((i) => i.id === s.itemId) as ClipItem | undefined; if (c?.fx) c.fx = c.fx.filter((f) => f.id !== s.fxId); }, undefined, tx('Suppression'));
+    st.select({ itemId: s.itemId });
+    return;
   } else if (s.musicId) {
     st.update((x) => { x.music = x.music.filter((m) => m.id !== s.musicId); }, undefined, tx('Suppression'));
   } else if (s.itemId) {

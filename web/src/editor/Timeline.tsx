@@ -11,8 +11,8 @@ import { Icon } from '../lib/icons';
 import { contextMenu, Dropdown, type MenuItem } from '../lib/ui';
 import { tx } from '../lib/i18n';
 import { pathOf, previewPath, spriteCell, usePeaks, usePeaksMany, useSpritesMany, type Peaks } from '../lib/previews';
-import type { ClipItem, Item, OClip, Project, TextStyle, Track, TransitionKind } from '../types';
-import { frameToSrc, type Resolved } from '../remotion/resolve';
+import type { Caption, ClipItem, Fx, Item, OClip, Project, TextStyle, Track, TransitionKind } from '../types';
+import { frameToSrc, srcToFrame, type Resolved } from '../remotion/resolve';
 import { api } from '../lib/api';
 import { useComp } from './comp';
 import { addMarker, applyEffect, applyPreset, copySelection, deleteSelection, duplicateSelection, hasClipboard, pasteAtPlayhead, roleTrack, splitAt, type TargetRef } from './actions';
@@ -28,8 +28,12 @@ type Row =
 type Drag =
   | { mode: 'scrub' }
   | { mode: 'clip'; sid: string; op: 'move' | 'trimL' | 'trimR'; clipId: string; trackId: string; x0: number; y0: number; start0: number; dur0: number; in0: number; active: boolean; alt: boolean }
-  | { mode: 'trim'; sid: string; id: string; side: 'in' | 'out'; x0: number; v0: number; rate: number; active: boolean }
-  | { mode: 'reorder'; id: string; x0: number; y0: number; active: boolean; idx: number | null; seekT: number };
+  | { mode: 'trim'; sid: string; id: string; side: 'in' | 'out' | 'dur'; x0: number; v0: number; rate: number; active: boolean }
+  | { mode: 'reorder'; id: string; x0: number; y0: number; active: boolean; idx: number | null; seekT: number }
+  // effet d'un plan ou sous-titre : temps en secondes source (t0..t1), a0 / b0 = leurs instants de sortie
+  | { mode: 'mark'; sid: string; op: 'move' | 'trimL' | 'trimR'; itemId: string; fxId?: string; capId?: string; x0: number; active: boolean;
+      t0: number; t1: number; a0: number; b0: number; point: boolean; dur0: number; seekF: number };
+type MarkRef = { itemId: string; fxId?: string; capId?: string; from: number };
 
 export const DND = 'application/x-cadre';
 const RULER = 26;
@@ -197,7 +201,7 @@ export function Timeline({ compact = false }: { compact?: boolean }) {
           d.clipId = nid;
           select({ clipId: nid, trackId: d.trackId });
         }
-      } else document.body.style.cursor = d.mode === 'trim' ? 'ew-resize' : 'grabbing';
+      } else document.body.style.cursor = d.mode === 'trim' || (d.mode === 'mark' && d.op !== 'move') ? 'ew-resize' : 'grabbing';
     }
     const dx = dxPx / pps;
     if (d.mode === 'reorder') {
@@ -209,9 +213,33 @@ export function Timeline({ compact = false }: { compact?: boolean }) {
       setInsertX(d.idx === null ? null : X((k < r.items.length ? r.items[k].from : r.duration) / fps));
       return;
     }
+    if (d.mode === 'mark') {
+      update((p) => {
+        const it = p.timeline.find((i) => i.id === d.itemId);
+        if (!it || it.type !== 'clip') return;
+        const x = (d.capId ? it.captions.find((c) => c.id === d.capId) : it.fx.find((f) => f.id === d.fxId)) as (Partial<Caption> & Partial<Extract<Fx, { kind: 'text' }>> & { t0?: number; t1?: number }) | undefined;
+        if (!x) return;
+        const r3 = (v: number) => Math.round(v * 1000) / 1000;
+        const at = (sec: number) => srcAt(d.itemId, d.op === 'move' ? snapT(sec, undefined) : sec);
+        if (d.point) {
+          if (d.op === 'move') x.t = r3(Math.max(it.in, Math.min(it.out, at(d.a0 + dx))));
+          else if (d.op === 'trimR' && x.dur !== undefined) x.dur = r3(Math.max(0.2, d.dur0 + dx));
+        } else if (d.op === 'move') {
+          const len = d.t1 - d.t0;
+          const t0 = Math.max(it.in, Math.min(it.out - len, at(d.a0 + dx)));
+          x.t0 = r3(t0); x.t1 = r3(t0 + len);
+        } else if (d.op === 'trimL') x.t0 = r3(Math.max(it.in, Math.min(d.t1 - 0.05, at(d.a0 + dx))));
+        else x.t1 = r3(Math.min(it.out, Math.max(d.t0 + 0.05, at(d.b0 + dx))));
+        if (d.capId) it.captions.sort((a, b) => a.t0 - b.t0);
+        else it.fx.sort((a, b) => ('t' in a ? a.t : a.t0) - ('t' in b ? b.t : b.t0));
+      }, `mark:${d.sid}`, d.op === 'move' ? tx('Déplacement') : tx('Rognage'));
+      return;
+    }
     if (d.mode === 'trim') {
       update((p) => {
-        const it = p.timeline.find((i) => i.id === d.id) as ClipItem | undefined;
+        const el = p.timeline.find((i) => i.id === d.id);
+        if (el && el.type !== 'clip') { el.dur = Math.round(Math.max(0.2, d.v0 + dx) * 1000) / 1000; return; }
+        const it = el as ClipItem | undefined;
         if (!it) return;
         const src = p.sources.find((s) => s.id === it.src);
         if (d.side === 'in') it.in = Math.max(0, Math.min(it.out - 0.2, d.v0 + dx * d.rate));
@@ -274,7 +302,44 @@ export function Timeline({ compact = false }: { compact?: boolean }) {
         }, undefined, tx('Déplacement'));
       } else if (!d.active && !playing) seek(d.seekT * fps);
     }
+    if (d.mode === 'mark' && !d.active && !playing) seek(d.seekF);
   };
+  /** instant de sortie -> temps source dans ce plan (bords du plan au-delà, morceau suivant dans une coupe) */
+  const srcAt = (itemId: string, sec: number): number => {
+    const ri = r.items.find((x) => x.id === itemId);
+    const segs = ri?.segs || [];
+    if (!segs.length) return 0;
+    const f = sec * fps;
+    const hit = frameToSrc(r, f);
+    if (hit && hit.itemId === itemId && hit.t !== null) return hit.t;
+    for (const sg of segs) if (f < sg.from) return sg.a;
+    return segs[segs.length - 1].b;
+  };
+  const markDown = (e: React.PointerEvent, m: MarkRef, op: 'move' | 'trimL' | 'trimR' = 'move') => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    if (tool === 'razor') { razorAt(e.clientX); return; }
+    select({ itemId: m.itemId, fxId: m.fxId, capId: m.capId });
+    const it = project.timeline.find((i) => i.id === m.itemId);
+    if (!it || it.type !== 'clip') { seek(m.from); return; }
+    const x = (m.capId ? it.captions.find((c) => c.id === m.capId) : it.fx.find((f) => f.id === m.fxId)) as { t?: number; t0?: number; t1?: number; dur?: number } | undefined;
+    if (!x) { seek(m.from); return; }
+    const point = x.t !== undefined;
+    const t0 = point ? x.t! : x.t0!, t1 = point ? x.t! : x.t1!;
+    const outSec = (t: number) => (srcToFrame(r, m.itemId, t) ?? m.from) / fps;
+    if (op !== 'move') e.preventDefault();
+    capture(e);
+    drag.current = { mode: 'mark', sid: uid('d'), op, itemId: m.itemId, fxId: m.fxId, capId: m.capId, x0: e.clientX, active: false,
+      t0, t1, a0: outSec(t0), b0: outSec(t1), point, dur0: x.dur ?? 0, seekF: m.from };
+  };
+  /** poignées de rognage d'une marque (effets à durée) */
+  const markHandles = (m: MarkRef, w: number, point = false) => w < 10 ? null : (
+    <>
+      {point ? null : <span className="hdl" style={{ left: 0, width: 4 }} onPointerDown={(e) => markDown(e, m, 'trimL')} />}
+      <span className="hdl" style={{ right: 0, width: 4 }} onPointerDown={(e) => markDown(e, m, 'trimR')} />
+    </>
+  );
+  const selShadow = (on: boolean) => (on ? '0 0 0 2px #fff inset' : undefined);
   useEffect(() => {
     const move = (e: PointerEvent) => {
       if (!drag.current) return;
@@ -582,18 +647,38 @@ export function Timeline({ compact = false }: { compact?: boolean }) {
                 {rw.kind === 'captions' ? r.captions.filter((c) => visible(X(c.from / fps), X((c.from + c.dur) / fps))).map((c) => (
                   <div key={c.id} className="mark" title={c.text}
                     style={{ left: X(c.from / fps), width: Math.max(2, X(c.dur / fps) - 1), background: spkColor(c.speaker), opacity: mix.captionsHidden ? 0.35 : sel.capId === c.id ? 1 : 0.8,
-                      boxShadow: sel.capId === c.id ? '0 0 0 2px #fff inset' : undefined, fontWeight: c.style === 'normal' ? 500 : 800 }}
-                    onPointerDown={(e) => { e.stopPropagation(); select({ itemId: c.itemId, capId: c.id }); seek(c.from); }}>{c.text}</div>
+                      boxShadow: selShadow(sel.capId === c.id), fontWeight: c.style === 'normal' ? 500 : 800 }}
+                    onPointerDown={(e) => markDown(e, { itemId: c.itemId, capId: c.id, from: c.from })}>{c.text}{markHandles({ itemId: c.itemId, capId: c.id, from: c.from }, X(c.dur / fps))}</div>
                 )) : null}
 
                 {rw.kind === 'fx' ? (
                   <>
                     {r.transitions.map((z, i) => <div key={`tr${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(4, X(z.dur / fps)), background: '#c9a0ff' }} title={`${tx('Transition')} : ${z.kind}`} />)}
-                    {r.zooms.map((z, i) => <div key={`z${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(2, X(z.dur / fps)), background: z.auto ? 'rgba(110,190,255,.35)' : '#6ebeff' }}
-                      title={`Zoom ×${z.scale.toFixed(2)}${z.auto ? ` (${tx('automatique')})` : ''}`} onPointerDown={(e) => { e.stopPropagation(); seek(z.from); }}>{tx('×')}{z.scale.toFixed(1)}</div>)}
-                    {r.shakes.map((z, i) => <div key={`s${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(2, X(z.dur / fps)), background: '#e8c35a', top: 10 }} title={tx('Secousse')} />)}
-                    {r.tints.map((z, i) => <div key={`t${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(2, X(z.dur / fps)), background: z.mode === 'bw' ? '#aaa' : z.mode === 'red' ? '#ff7a7a' : '#fff' }} title={z.mode}>{z.mode === 'bw' ? 'N&B' : z.mode}</div>)}
-                    {r.texts.map((z, i) => <div key={`x${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(2, X(z.dur / fps)), background: '#e59ad8' }} title={z.text}>{z.text}</div>)}
+                    {r.zooms.map((z, i) => (
+                      <div key={`z${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(2, X(z.dur / fps)), background: z.auto ? 'rgba(110,190,255,.35)' : '#6ebeff', boxShadow: selShadow(!!z.ref && sel.fxId === z.ref.fxId) }}
+                        title={`Zoom ×${z.scale.toFixed(2)}${z.auto ? ` (${tx('automatique')})` : ''}`}
+                        onPointerDown={(e) => { if (z.ref) markDown(e, { ...z.ref, from: z.from }); else { e.stopPropagation(); seek(z.from); } }}>
+                        {tx('×')}{z.scale.toFixed(1)}{z.ref ? markHandles({ ...z.ref, from: z.from }, X(z.dur / fps)) : null}
+                      </div>
+                    ))}
+                    {r.shakes.map((z, i) => (
+                      <div key={`s${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(2, X(z.dur / fps)), background: '#e8c35a', top: 10, boxShadow: selShadow(!!z.ref && sel.fxId === z.ref.fxId) }} title={tx('Secousse')}
+                        onPointerDown={(e) => { if (z.ref) markDown(e, { ...z.ref, from: z.from }); else { e.stopPropagation(); seek(z.from); } }}>
+                        {z.ref ? markHandles({ ...z.ref, from: z.from }, X(z.dur / fps)) : null}
+                      </div>
+                    ))}
+                    {r.tints.map((z, i) => (
+                      <div key={`t${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(2, X(z.dur / fps)), background: z.mode === 'bw' ? '#aaa' : z.mode === 'red' ? '#ff7a7a' : '#fff', boxShadow: selShadow(!!z.ref && sel.fxId === z.ref.fxId) }} title={z.mode}
+                        onPointerDown={(e) => { if (z.ref) markDown(e, { ...z.ref, from: z.from }); else { e.stopPropagation(); seek(z.from); } }}>
+                        {z.mode === 'bw' ? 'N&B' : z.mode}{z.ref ? markHandles({ ...z.ref, from: z.from }, X(z.dur / fps)) : null}
+                      </div>
+                    ))}
+                    {r.texts.map((z, i) => (
+                      <div key={`x${i}`} className="mark" style={{ left: X(z.from / fps), width: Math.max(2, X(z.dur / fps)), background: '#e59ad8', boxShadow: selShadow(!!z.ref && sel.fxId === z.ref.fxId) }} title={z.text}
+                        onPointerDown={(e) => { if (z.ref) markDown(e, { ...z.ref, from: z.from }); else { e.stopPropagation(); seek(z.from); } }}>
+                        {z.text}{z.ref ? markHandles({ ...z.ref, from: z.from }, X(z.dur / fps), true) : null}
+                      </div>
+                    ))}
                   </>
                 ) : null}
 
@@ -608,8 +693,9 @@ export function Timeline({ compact = false }: { compact?: boolean }) {
                 )) : null}
 
                 {rw.kind === 'sfx' ? r.sfx.filter((s) => visible(X(s.from / fps), X((s.from + s.dur) / fps))).map((s) => (
-                  <div key={s.key} className="mark" style={{ left: X(s.from / fps), width: Math.max(3, X(s.dur / fps)), background: s.name === 'censor' ? '#ff7a7a' : '#7fd6a4', opacity: mix.sfxMuted ? 0.4 : 1 }}
-                    title={s.name} onPointerDown={(e) => { e.stopPropagation(); seek(s.from); }}>{s.name.startsWith('f:') ? '' : s.name}</div>
+                  <div key={s.key} className="mark" style={{ left: X(s.from / fps), width: Math.max(3, X(s.dur / fps)), background: s.name === 'censor' ? '#ff7a7a' : '#7fd6a4', opacity: mix.sfxMuted ? 0.4 : 1,
+                    boxShadow: selShadow(!!s.ref && sel.fxId === s.ref.fxId) }}
+                    title={s.name} onPointerDown={(e) => { if (s.ref) markDown(e, { ...s.ref, from: s.from }); else { e.stopPropagation(); seek(s.from); } }}>{s.name.startsWith('f:') ? '' : s.name}</div>
                 )) : null}
 
                 {rw.kind !== 'track' && 'tr' in rw && rw.tr ? trackClips(rw.tr, rw.h) : null}
@@ -634,7 +720,7 @@ export function Timeline({ compact = false }: { compact?: boolean }) {
 function V1Row({ thumbsOn, r, project, pps, h, visible, sel, dragging, onDown, onMenu, onTrim }: {
   thumbsOn: boolean; r: Resolved; project: Project; pps: number; h: number; visible: (a: number, b: number) => boolean; sel: { itemId?: string }; dragging: string | null;
   onDown: (id: string, e: React.PointerEvent) => void; onMenu: (e: React.MouseEvent, id: string) => void;
-  onTrim: (id: string, side: 'in' | 'out', e: React.PointerEvent, v0: number, rate: number) => void;
+  onTrim: (id: string, side: 'in' | 'out' | 'dur', e: React.PointerEvent, v0: number, rate: number) => void;
 }) {
   const fps = r.fps;
   const sprites = useSpritesMany(project.sources.map((s) => previewPath(s)));
@@ -682,7 +768,7 @@ function V1Row({ thumbsOn, r, project, pps, h, visible, sel, dragging, onDown, o
                 <span className="hdl" style={{ left: 0, width: hw }} onPointerDown={(e) => onTrim(it.id, 'in', e, it.in, rate)} />
                 <span className="hdl" style={{ right: 0, width: hw }} onPointerDown={(e) => onTrim(it.id, 'out', e, it.out, rate)} />
               </>
-            ) : null}
+            ) : <span className="hdl" style={{ right: 0, width: hw }} onPointerDown={(e) => onTrim(it.id, 'dur', e, it.dur, 1)} />}
           </div>
         );
       })}

@@ -70,11 +70,6 @@ export const api = {
     fd.append('file', file);
     return req<{ source: Project['sources'][number] }>('POST', `/api/projects/${id}/upload`, fd);
   },
-  uploadLogo: (id: string, file: File) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    return req<{ logo: string; logoUrl: string }>('POST', `/api/projects/${id}/logo`, fd);
-  },
   deleteSource: (id: string, src: string) => req('DELETE', `/api/projects/${id}/sources/${src}`),
   sourceAction: (id: string, src: string, action: 'proxy' | 'transcribe' | 'speakers' | 'stems') => req<{ job: string }>('POST', `/api/projects/${id}/sources/${src}/${action}`),
   moments: (id: string, src: string) => req<{ t: number; pic: number; score: number; extrait: string }[]>('GET', `/api/projects/${id}/moments/${src}`),
@@ -117,8 +112,15 @@ export const api = {
 /** attend la fin d'une tâche en relayant ses évènements */
 export async function followJob(id: string, onEvent?: (e: NonNullable<JobInfo['events']>[number], j: JobInfo) => void, onTick?: (j: JobInfo) => void): Promise<JobInfo> {
   let since = 0;
+  let fails = 0;
   for (;;) {
-    const j = await api.job(id, since);
+    let j: JobInfo;
+    try { j = await api.job(id, since); fails = 0; } catch (e) {
+      // coupure passagère (moteur occupé, réseau) : on réessaie un moment avant d'abandonner
+      if (++fails > 15) throw e;
+      await new Promise((r) => setTimeout(r, 1000));
+      continue;
+    }
     for (const e of j.events || []) onEvent?.(e, j);
     since += (j.events || []).length;
     onTick?.(j);
