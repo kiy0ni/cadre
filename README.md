@@ -61,7 +61,13 @@ pour les reproduire.
 
 **Bibliothèques** (Réglages) : dossiers de musiques, sons, visuels réutilisables ; Cadre les classe et l'assistant s'en sert.
 
-**Accès à distance** : le moteur écoute aussi sur l'adresse Tailscale de la machine (jamais sur Internet ni le réseau local).
+**Accès à distance** : depuis un autre appareil que le Mac, Cadre demande toujours un mot de passe (Réglages › Accès à
+distance ; haché dans les données, sessions de 30 jours, blocage après 6 essais ratés). Sans mot de passe défini,
+l'accès à distance est fermé.
+- Sur tes appareils Tailscale : `tailscale serve --bg http://127.0.0.1:8765`.
+- Depuis n'importe quel navigateur (PC du travail…) : `tailscale funnel --bg http://127.0.0.1:8765` publie la même
+  adresse sur Internet (toujours derrière le mot de passe). Pour couper : `tailscale funnel --https=443 off`.
+  Le Mac doit rester allumé avec Cadre ouvert.
 
 ## Développement
 
