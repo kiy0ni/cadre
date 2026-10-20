@@ -1,0 +1,74 @@
+{
+ "id": "cinematique",
+ "name": "Cinématique / aftermovie",
+ "description": "Montage d’images sur la musique : transitions, étalonnage film, peu de parole.",
+ "format": {
+  "width": 1920,
+  "height": 1080,
+  "fps": 30
+ },
+ "structure": "ouverture lente → montée → climax → fin",
+ "rules": "# Cinématique\n- La musique mène : couper sur les temps forts, plans de 1 à 4 s, plus longs dans les passages calmes.\n- Pas de sous-titres sauf paroles essentielles ; pas de bruitages comiques.\n- Étalonnage cohérent sur tous les plans (filtre « film »), transitions fondu / flou entre les parties.\n- Titre sobre au début, fin en fondu au noir.",
+ "style": {
+  "captions": {
+   "font": "Inter",
+   "weight": 600,
+   "size": 52,
+   "color": "#FFFFFF",
+   "outline": 0,
+   "shadow": 4,
+   "bottom": 96,
+   "mode": "groups",
+   "case": "natural",
+   "uppercase": false,
+   "pop": false,
+   "shoutScale": 1.18,
+   "maxChars": 34
+  },
+  "jumpCuts": {
+   "enabled": false,
+   "gap": 0.3,
+   "pre": 0.1,
+   "post": 0.22
+  },
+  "baseSpeed": 1.0,
+  "face": [
+   0.5,
+   0.42
+  ],
+  "zoom": {
+   "face": 1.6,
+   "center": 1.25
+  },
+  "shakeOnImpact": false,
+  "whooshOnFaceZoom": false,
+  "music": {
+   "db": -10,
+   "duckDb": 4
+  },
+  "sfxDb": -6,
+  "censor": {
+   "captions": false,
+   "audio": false,
+   "duckDb": -22
+  },
+  "stems": {
+   "enabled": false,
+   "gameBoostDb": 0,
+   "gameUnderVoiceDb": 0
+  },
+  "cards": {
+   "twitchHandle": "",
+   "twitchColor": "#9146FF"
+  },
+  "topText": "",
+  "loudness": -14
+ },
+ "builtin": true,
+ "speakers": [],
+ "defaultSpeaker": null,
+ "whisper": {
+  "language": "fr",
+  "prompt": ""
+ }
+}

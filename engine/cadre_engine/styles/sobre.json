@@ -1,0 +1,75 @@
+{
+ "id": "sobre",
+ "name": "Sobre",
+ "description": "Propre et posé : coupes des silences, sous-titres lisibles, presque pas d’effets.",
+ "format": {
+  "width": 1920,
+  "height": 1080,
+  "fps": 30
+ },
+ "structure": "accroche → corps → conclusion",
+ "rules": "# Sobre\n- Couper les silences et hésitations, garder les phrases entières.\n- Zooms légers et rares, aucun bruitage comique, musique discrète.\n- Sous-titres en phrases courtes.",
+ "style": {
+  "captions": {
+   "font": "Inter",
+   "weight": 700,
+   "size": 60,
+   "color": "#FFFFFF",
+   "outline": 0,
+   "shadow": 3,
+   "bottom": 70,
+   "mode": "groups",
+   "case": "natural",
+   "uppercase": false,
+   "pop": false,
+   "shoutScale": 1.18,
+   "maxChars": 42,
+   "box": true
+  },
+  "jumpCuts": {
+   "enabled": true,
+   "gap": 0.5,
+   "pre": 0.15,
+   "post": 0.3
+  },
+  "baseSpeed": 1.0,
+  "face": [
+   0.5,
+   0.42
+  ],
+  "zoom": {
+   "face": 1.2,
+   "center": 1.12
+  },
+  "shakeOnImpact": false,
+  "whooshOnFaceZoom": false,
+  "music": {
+   "db": -24,
+   "duckDb": 8
+  },
+  "sfxDb": -6,
+  "censor": {
+   "captions": false,
+   "audio": false,
+   "duckDb": -22
+  },
+  "stems": {
+   "enabled": false,
+   "gameBoostDb": 0,
+   "gameUnderVoiceDb": 0
+  },
+  "cards": {
+   "twitchHandle": "",
+   "twitchColor": "#9146FF"
+  },
+  "topText": "",
+  "loudness": -14
+ },
+ "builtin": true,
+ "speakers": [],
+ "defaultSpeaker": null,
+ "whisper": {
+  "language": "fr",
+  "prompt": ""
+ }
+}

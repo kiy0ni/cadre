@@ -1,0 +1,10 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+web/dist/
+desktop/dist/
+desktop/out/
+desktop/stage/
+desktop/app-path.json
+.DS_Store

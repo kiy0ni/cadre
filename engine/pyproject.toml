@@ -1,0 +1,25 @@
+[project]
+name = "cadre-engine"
+version = "1.0.0"
+description = "Moteur de Cadre : médias, transcription, IA, rendu."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "python-multipart>=0.0.9",
+  "anthropic>=1.0",
+  "numpy>=2.0",
+  "scipy>=1.13",
+  "pillow>=10.0",
+  "yt-dlp>=2025.1.1",
+  "static-ffmpeg>=2.7",
+  "mlx-whisper>=0.4; sys_platform == 'darwin' and platform_machine == 'arm64'",
+  "faster-whisper>=1.1; sys_platform != 'darwin' or platform_machine != 'arm64'",
+]
+
+[project.optional-dependencies]
+# reconnaissance des voix (qui parle) et séparation voix / jeu : ~2 Go, installés à la demande
+voix = ["torch>=2.4", "torchaudio>=2.4", "speechbrain>=1.0", "demucs>=4.0", "soundfile>=0.12"]
+
+[tool.uv]
+package = false

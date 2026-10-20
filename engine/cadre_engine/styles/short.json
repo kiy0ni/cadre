@@ -1,0 +1,75 @@
+{
+ "id": "short",
+ "name": "Short / Reel / TikTok",
+ "description": "Vertical 9:16, 15-60 s, accroche immédiate, sous-titres mot à mot.",
+ "format": {
+  "width": 1080,
+  "height": 1920,
+  "fps": 30
+ },
+ "structure": "accroche dès la 1re seconde → le moment → chute",
+ "rules": "# Short vertical\n- Une seule idée ou un seul moment, 15 à 60 s. Accroche dans la première seconde.\n- Recadrer sur l'action (recadrage horizontal du plan), garder le visage ou le sujet dans le cadre.\n- Sous-titres gros, 1 à 2 mots à la fois, au centre bas.\n- Coupes très serrées, zooms fréquents, bruitages sur chaque punchline.\n- Finir sur la chute, sans outro.",
+ "style": {
+  "captions": {
+   "font": "Montserrat",
+   "weight": 900,
+   "size": 118,
+   "color": "#FFFFFF",
+   "outline": 9,
+   "shadow": 3,
+   "bottom": 320,
+   "mode": "words",
+   "case": "upper",
+   "uppercase": true,
+   "pop": true,
+   "shoutScale": 1.18,
+   "maxChars": 16,
+   "wordsPerCaption": 2
+  },
+  "jumpCuts": {
+   "enabled": true,
+   "gap": 0.2,
+   "pre": 0.1,
+   "post": 0.22
+  },
+  "baseSpeed": 1.0,
+  "face": [
+   0.5,
+   0.4
+  ],
+  "zoom": {
+   "face": 1.35,
+   "center": 1.2
+  },
+  "shakeOnImpact": true,
+  "whooshOnFaceZoom": false,
+  "music": {
+   "db": -18,
+   "duckDb": 6
+  },
+  "sfxDb": 0,
+  "censor": {
+   "captions": false,
+   "audio": false,
+   "duckDb": -22
+  },
+  "stems": {
+   "enabled": false,
+   "gameBoostDb": 0,
+   "gameUnderVoiceDb": 0
+  },
+  "cards": {
+   "twitchHandle": "",
+   "twitchColor": "#9146FF"
+  },
+  "topText": "",
+  "loudness": -14
+ },
+ "builtin": true,
+ "speakers": [],
+ "defaultSpeaker": null,
+ "whisper": {
+  "language": "fr",
+  "prompt": ""
+ }
+}

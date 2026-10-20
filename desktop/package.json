@@ -1,0 +1,18 @@
+{
+  "name": "cadre-desktop",
+  "productName": "Cadre",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "package": "node build.mjs",
+    "dist:mac": "node build.mjs --standalone --platform=darwin --arch=arm64",
+    "dist:mac-intel": "node build.mjs --standalone --platform=darwin --arch=x64",
+    "dist:win": "node build.mjs --standalone --platform=win32 --arch=x64"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "43.7.7"
+  }
+}

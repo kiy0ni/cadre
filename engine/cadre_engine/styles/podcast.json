@@ -1,0 +1,75 @@
+{
+ "id": "podcast",
+ "name": "Podcast / interview",
+ "description": "Conversation à plusieurs : coupes douces, couleurs par personne, peu d’effets.",
+ "format": {
+  "width": 1920,
+  "height": 1080,
+  "fps": 30
+ },
+ "structure": "extrait fort en accroche → présentation → échange → conclusion",
+ "rules": "# Podcast / interview\n- Garder les échanges entiers ; couper les hésitations et les longs silences, jamais au milieu d'une idée.\n- Changer de cadrage sur la personne qui parle (zoom léger sur sa moitié de l'image) toutes les 10 à 20 s.\n- Sous-titres sobres sur fond, couleur par personne.\n- Pas de bruitages comiques ; musique seulement en ouverture et fermeture.\n- Bandeau (texte « bandeau ») avec le nom de chaque invité à sa première prise de parole.",
+ "style": {
+  "captions": {
+   "font": "Inter",
+   "weight": 700,
+   "size": 60,
+   "color": "#FFFFFF",
+   "outline": 0,
+   "shadow": 0,
+   "bottom": 70,
+   "mode": "groups",
+   "case": "natural",
+   "uppercase": false,
+   "pop": false,
+   "shoutScale": 1.18,
+   "maxChars": 42,
+   "box": true
+  },
+  "jumpCuts": {
+   "enabled": true,
+   "gap": 0.6,
+   "pre": 0.15,
+   "post": 0.3
+  },
+  "baseSpeed": 1.0,
+  "face": [
+   0.5,
+   0.42
+  ],
+  "zoom": {
+   "face": 1.25,
+   "center": 1.12
+  },
+  "shakeOnImpact": false,
+  "whooshOnFaceZoom": false,
+  "music": {
+   "db": -24,
+   "duckDb": 10
+  },
+  "sfxDb": -6,
+  "censor": {
+   "captions": false,
+   "audio": false,
+   "duckDb": -22
+  },
+  "stems": {
+   "enabled": false,
+   "gameBoostDb": 0,
+   "gameUnderVoiceDb": 0
+  },
+  "cards": {
+   "twitchHandle": "",
+   "twitchColor": "#9146FF"
+  },
+  "topText": "",
+  "loudness": -14
+ },
+ "builtin": true,
+ "speakers": [],
+ "defaultSpeaker": null,
+ "whisper": {
+  "language": "fr",
+  "prompt": ""
+ }
+}

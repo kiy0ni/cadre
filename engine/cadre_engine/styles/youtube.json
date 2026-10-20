@@ -1,0 +1,74 @@
+{
+ "id": "youtube",
+ "name": "YouTube dynamique",
+ "description": "Vlog, gaming, réaction : coupes serrées, sous-titres, zooms et bruitages pour garder l’attention.",
+ "format": {
+  "width": 1920,
+  "height": 1080,
+  "fps": 30
+ },
+ "structure": "accroche (le meilleur moment, 10-20 s) → titre → parties chronologiques → conclusion",
+ "rules": "# YouTube dynamique\n- Commencer par une accroche : le moment le plus fort ou la promesse de la vidéo, en 10 à 20 s. Pas d'intro lente.\n- Garder l'histoire : passages entiers avec leur contexte, dans l'ordre. Couper tout ce qui ne fait pas avancer ou rire.\n- Rythme : silences coupés, une relance visuelle toutes les 5 à 10 s (zoom, texte, bruitage, changement de plan).\n- Zooms secs sur les réactions fortes, bruitages courts et synchronisés sur les événements, pas de spam.\n- Musique de fond adaptée à chaque partie, changée quand l'ambiance change.\n- Sous-titres en groupes de sens courts, jamais avant la parole.\n- Chapitres YouTube sur le premier plan de chaque partie.",
+ "style": {
+  "captions": {
+   "font": "Montserrat",
+   "weight": 800,
+   "size": 84,
+   "color": "#FFFFFF",
+   "outline": 6,
+   "shadow": 3,
+   "bottom": 96,
+   "mode": "groups",
+   "case": "natural",
+   "uppercase": false,
+   "pop": true,
+   "shoutScale": 1.18,
+   "maxChars": 34
+  },
+  "jumpCuts": {
+   "enabled": true,
+   "gap": 0.3,
+   "pre": 0.1,
+   "post": 0.22
+  },
+  "baseSpeed": 1.0,
+  "face": [
+   0.5,
+   0.42
+  ],
+  "zoom": {
+   "face": 1.6,
+   "center": 1.25
+  },
+  "shakeOnImpact": true,
+  "whooshOnFaceZoom": false,
+  "music": {
+   "db": -18,
+   "duckDb": 6
+  },
+  "sfxDb": 0,
+  "censor": {
+   "captions": false,
+   "audio": false,
+   "duckDb": -22
+  },
+  "stems": {
+   "enabled": false,
+   "gameBoostDb": 0,
+   "gameUnderVoiceDb": 0
+  },
+  "cards": {
+   "twitchHandle": "",
+   "twitchColor": "#9146FF"
+  },
+  "topText": "",
+  "loudness": -14
+ },
+ "builtin": true,
+ "speakers": [],
+ "defaultSpeaker": null,
+ "whisper": {
+  "language": "fr",
+  "prompt": ""
+ }
+}
