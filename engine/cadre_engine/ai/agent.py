@@ -22,8 +22,8 @@ outils qui modifient le projet ; la personne voit chaque modification en direct 
 faire tout le montage seul, du dérushage à l'étalonnage, ou seulement une retouche : suis la demande et le style du projet.
 
 Comment marche la timeline :
-- Une suite d'éléments joués l'un après l'autre (piste V1) : plans (extraits d'une source), cartons, arrêts sur image, médias (outro).
-- Par-dessus, des pistes libres (comme dans Premiere) : textes et incrustations (VFX, memes sur fond vert) placés en temps de
+- Une suite d'éléments joués l'un après l'autre (piste V1) : plans (extraits d'une source), cartons (titre, chapitre, narration, image, réseaux), arrêts sur image, médias (vidéo ou image plein écran).
+- Par-dessus, des pistes libres (comme dans Premiere) : textes et incrustations (images, logos, vidéos, éléments sur fond vert) placés en temps de
   vidéo montée, et pistes audio. Chaque élément peut avoir une transition d'entrée, un étalonnage et un transform.
 - Les temps des plans, sous-titres et effets sont en SECONDES DANS LA SOURCE (ceux de la transcription), jamais en temps de sortie.
 - Les clips des pistes libres se règlent avec modifier_clip_piste / supprimer_clips_piste ; les niveaux avec mixage ; le

@@ -553,7 +553,7 @@
  "Rechercher": "Suchen",
  "Rechercher un effet": "Effekt suchen",
  "Reconnaissance des voix": "Stimmerkennung",
- "Reconnaît qui parle et sépare la voix du fond sonore (jeu, musique). Téléchargement d'environ 2 Go.": "Erkennt, wer spricht, und trennt die Stimme vom Hintergrund (Spiel, Musik). Download von etwa 2 GB.",
+ "Reconnaît qui parle et sépare la voix du fond sonore (musique, ambiance, jeu…). Téléchargement d'environ 2 Go.": "Erkennt, wer spricht, und trennt die Stimme vom Hintergrund (Musik, Atmo, Spiel…). Download von etwa 2 GB.",
  "Reconnaître qui parle": "Erkennen, wer spricht",
  "Recréer": "Neu erstellen",
  "Recréer depuis la transcription": "Aus Transkript neu erstellen",
@@ -826,5 +826,11 @@
  "Se connecter": "Anmelden",
  "Se déconnecter de cet appareil": "Auf diesem Gerät abmelden",
  "défini": "festgelegt",
- "non défini : accès à distance fermé": "nicht festgelegt: Fernzugriff geschlossen"
+ "non défini : accès à distance fermé": "nicht festgelegt: Fernzugriff geschlossen",
+ "Ancien style": "Alter Stil",
+ "Bandeau": "Banner",
+ "Personnalisé · {0}×{1}": "Benutzerdefiniert · {0}×{1}",
+ "Personnalisé…": "Benutzerdefiniert…",
+ "Sous-texte": "Untertext",
+ "Séquence": "Sequenz"
 }

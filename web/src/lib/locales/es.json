@@ -553,7 +553,7 @@
  "Rechercher": "Buscar",
  "Rechercher un effet": "Buscar un efecto",
  "Reconnaissance des voix": "Reconocimiento de voces",
- "Reconnaît qui parle et sépare la voix du fond sonore (jeu, musique). Téléchargement d'environ 2 Go.": "Reconoce quién habla y separa la voz del sonido de fondo (juego, música). Descarga de unos 2 GB.",
+ "Reconnaît qui parle et sépare la voix du fond sonore (musique, ambiance, jeu…). Téléchargement d'environ 2 Go.": "Reconoce quién habla y separa la voz del fondo sonoro (música, ambiente, juego…). Descarga de unos 2 GB.",
  "Reconnaître qui parle": "Reconocer quién habla",
  "Recréer": "Volver a crear",
  "Recréer depuis la transcription": "Volver a crear a partir de la transcripción",
@@ -826,5 +826,11 @@
  "Se connecter": "Iniciar sesión",
  "Se déconnecter de cet appareil": "Cerrar sesión en este dispositivo",
  "défini": "definida",
- "non défini : accès à distance fermé": "no definida: acceso remoto cerrado"
+ "non défini : accès à distance fermé": "no definida: acceso remoto cerrado",
+ "Ancien style": "Estilo antiguo",
+ "Bandeau": "Banda",
+ "Personnalisé · {0}×{1}": "Personalizado · {0}×{1}",
+ "Personnalisé…": "Personalizado…",
+ "Sous-texte": "Subtexto",
+ "Séquence": "Secuencia"
 }

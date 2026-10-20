@@ -423,10 +423,11 @@ const CardView: React.FC<{
   const f = useCurrentFrame();
   const p = pop(f, fps, 0.55, 1.12, 90, 160);
   const fam = fontFamily(font);
-  const common: React.CSSProperties = { fontFamily: fam, fontWeight: 800, color: 'white', textAlign: 'center', whiteSpace: 'pre-line' };
+  const bg = item.bg || 'black';
+  const common: React.CSSProperties = { fontFamily: fam, fontWeight: 800, color: item.color || 'white', textAlign: 'center', whiteSpace: 'pre-line' };
   if (item.style === 'logo' && (item.image || logo)) {
     return (
-      <AbsoluteFill style={{ backgroundColor: 'black', alignItems: 'center', justifyContent: 'center' }}>
+      <AbsoluteFill style={{ backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
         <Img src={(item.image || logo) as string} style={{ maxWidth: '62%', maxHeight: '58%', objectFit: 'contain', transform: `scale(${p})` }} />
       </AbsoluteFill>
     );
@@ -434,7 +435,7 @@ const CardView: React.FC<{
   if (item.style === 'twitch') {
     const lines = item.text.split('\n').map((l) => l.replace(/[~*^]/g, '').trim());
     return (
-      <AbsoluteFill style={{ backgroundColor: 'black' }}>
+      <AbsoluteFill style={{ backgroundColor: bg }}>
         <div style={{ ...common, position: 'absolute', left: 0, right: 0, top: 500 * k - 95 * k, fontSize: 159 * k * 0.62, transform: `scale(${p})` }}>{lines[0]}</div>
         <div style={{ ...common, position: 'absolute', left: 0, right: 0, top: 617 * k - 95 * k, fontSize: 159 * k * 0.62, color: twitchColor, transform: `scale(${p})` }}>{lines[1] || ''}</div>
       </AbsoluteFill>
@@ -442,13 +443,13 @@ const CardView: React.FC<{
   }
   if (item.style === 'title') {
     return (
-      <AbsoluteFill style={{ backgroundColor: 'black', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ ...common, fontSize: 150 * k, background: '#E8232A', padding: `${10 * k}px ${40 * k}px`, transform: `scale(${p})` }}>{item.text}</div>
+      <AbsoluteFill style={{ backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ ...common, fontSize: 150 * k, background: item.band ?? '#E8232A', padding: `${10 * k}px ${40 * k}px`, transform: `scale(${p})` }}>{item.text}</div>
       </AbsoluteFill>
     );
   }
   return (
-    <AbsoluteFill style={{ backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 30 * k }}>
+    <AbsoluteFill style={{ backgroundColor: bg, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 30 * k }}>
       <div style={{ ...common, fontSize: (item.style === 'narr' ? 96 : 150) * k, transform: `scale(${p})`, padding: `0 ${80 * k}px` }}>
         {marked(item.text, twitchColor)}
       </div>

@@ -3,7 +3,7 @@ modification, le projet est enregistré et poussé à l'éditeur, qui se met à 
 
 Modèle de timeline (le même que l'éditeur, voir web/src/types.ts) : une suite d'éléments joués l'un après l'autre.
   clip    {src, in, out, label, jump, speed, captions[], fx[]}   temps = secondes dans la source
-  card    {dur, text, sub, style: logo|twitch|narr|title, image}
+  card    {dur, text, sub, style: title|chapter|narr, bg, color, band}
   freeze  {src, t, dur, target, scale, sfx}
   media   {path, url, dur}
 Effets d'un plan (fx), temps source : zoom, shake, tint, sfx, text, cut, keep, speed, censor.
@@ -135,7 +135,7 @@ def etat_projet(ctx, args):
         st = s.get('status', {})
         lines.append(f"- {s['id']} ({s['name']}) {s['kind']} {_fmt(s['duration'])} — transcription : "
                      f"{'oui, %d mots' % nw if nw else st.get('transcript', 'non')} — qui parle : {st.get('speakers', 'non')}"
-                     f" — voix/jeu séparés : {st.get('stems', 'non')}")
+                     f" — voix/fond séparés : {st.get('stems', 'non')}")
     tl = p['timeline']
     total = 0.0
     lines.append(f'Timeline ({len(tl)} éléments) :')
@@ -348,21 +348,26 @@ def ajouter_plan(ctx, args):
     return f"plan [{clip['id']}] ajouté en position {idx} (≈{item_duration(ctx, clip):.1f} s montés). Sous-titres auto ({len(clip['captions'])}) : {caps or 'aucun'}"
 
 
+CARD_STYLES = {'titre': 'title', 'chapitre': 'chapter', 'texte': 'narr'}
+
+
+def _color(v, name):
+    v = str(v or '').strip()
+    if v and not re.fullmatch(r'#[0-9a-fA-F]{6}', v): raise ToolError(f'{name} : couleur #rrggbb attendue')
+    return v
+
+
 def ajouter_carton(ctx, args):
-    style = args.get('style', 'narr')
-    if style not in ('logo', 'twitch', 'narr', 'title'): raise ToolError('style : logo, twitch, narr ou title')
-    st = ctx.style()
-    text = args.get('texte', '')
-    if style == 'twitch' and not text:
-        text = 'extrait de twitch :\n' + (st.get('cards', {}).get('twitchHandle') or '')
-    image = args.get('image') or (ctx.p.get('logo') if style == 'logo' else None)
-    if image and image != ctx.p.get('logo') and not os.path.exists(image): raise ToolError(f'image introuvable : {image}')
-    dur = _num(args.get('duree', 2.4 if style == 'logo' else 1.8 if style == 'twitch' else 1.4), 'duree')
-    card = {'id': store.new_id('i'), 'type': 'card', 'dur': round(dur, 2), 'text': text, 'sub': args.get('sous_texte', ''),
-            'style': style, 'image': file_url(image) if image and image.startswith('/') else image}
+    style = CARD_STYLES.get(args.get('style', 'title'), args.get('style'))
+    if style not in ('title', 'chapter', 'narr'): raise ToolError('style : title, chapter ou narr')
+    card = {'id': store.new_id('i'), 'type': 'card', 'dur': round(_num(args.get('duree', 1.8 if style == 'chapter' else 1.4), 'duree'), 2),
+            'text': args.get('texte', ''), 'sub': args.get('sous_texte', ''), 'style': style}
+    for key, arg in (('bg', 'fond'), ('color', 'couleur')):
+        if args.get(arg): card[key] = _color(args[arg], arg)
+    if style == 'title' and 'bandeau' in args: card['band'] = _color(args['bandeau'], 'bandeau')
     idx = _insert(ctx, card, args)
     ctx.changed()
-    return f"carton [{card['id']}] ({style}) en position {idx}" + ('' if image or style != 'logo' else " — pas de logo dans le projet : le carton affiche le texte")
+    return f"carton [{card['id']}] ({style}) en position {idx}"
 
 
 def ajouter_arret_image(ctx, args):
@@ -370,7 +375,7 @@ def ajouter_arret_image(ctx, args):
     t = _num(args['temps'], 'temps')
     fr = {'id': store.new_id('i'), 'type': 'freeze', 'src': s['id'], 't': round(t, 3), 'dur': round(_num(args.get('duree', 1.3), 'duree'), 2),
           'target': _target(args.get('cible', 'visage')), 'scale': float(args.get('echelle', 2.2)),
-          'sfx': args.get('son', 'vine_boom') or None}
+          'sfx': args.get('son') or None}
     idx = _insert(ctx, fr, args)
     ctx.changed()
     return f"arrêt sur image [{fr['id']}] en position {idx}"
@@ -378,6 +383,8 @@ def ajouter_arret_image(ctx, args):
 
 def ajouter_media(ctx, args):
     path = args['chemin']
+    src = next((x for x in ctx.p['sources'] if x['id'] == path), None)
+    if src: path = src['path']
     if path in ('outro', 'OUTRO'):
         path = ctx.pack.get('outro') or ''
         if not path: raise ToolError("ce style n'a pas d'outro (Styles › Général)")
@@ -399,8 +406,8 @@ def _target(v):
 
 FX_KINDS = {'zoom': 'zoom', 'secousse': 'shake', 'teinte': 'tint', 'son': 'sfx', 'texte': 'text', 'coupe': 'cut',
             'garder': 'keep', 'vitesse': 'speed', 'censure': 'censor'}
-TINTS = {'nb': 'bw', 'noir et blanc': 'bw', 'bw': 'bw', 'rouge': 'red', 'red': 'red', 'flash': 'flash'}
-TEXTS = {'gros': 'big', 'big': 'big', 'note': 'note', 'rip': 'rip'}
+TINTS = {'nb': 'bw', 'noir et blanc': 'bw', 'bw': 'bw', 'flash': 'flash'}
+TEXTS = {'gros': 'big', 'big': 'big', 'note': 'note'}
 
 
 def _fx(ctx, clip, e):
@@ -900,15 +907,16 @@ TOOLS = [
      S({'source': STR, 'debut': NUM, 'fin': NUM, 'titre_chapitre': {'type': 'string', 'description': 'nom de chapitre YouTube sur le premier plan d\'une partie'},
         'coupes_silences': {'type': 'boolean'}, 'sous_titres': {'type': 'string', 'enum': ['auto', 'aucun']}, **POS},
        ['source', 'debut', 'fin']), ajouter_plan, True),
-    ('ajouter_carton', "Ajoute un carton plein écran : logo (logo du jeu + boom), twitch (« extrait de twitch : » + lien, texte auto), narr (narration en minuscules), title (gros titre).",
-     S({'style': {'type': 'string', 'enum': ['logo', 'twitch', 'narr', 'title']}, 'texte': STR, 'sous_texte': STR, 'duree': NUM,
-        'image': {'type': 'string', 'description': 'chemin d\'une image (logo) ; par défaut le logo du projet'}, **POS}, ['style']), ajouter_carton, True),
-    ('ajouter_arret_image', "Arrêt sur image avec zoom sec (moment dramatique / punchline), avec un son (vine_boom par défaut).",
+    ('ajouter_carton', "Ajoute un carton plein écran (texte sur fond uni) : title (gros titre, avec bandeau de couleur), chapter (titre de partie), narr (texte de narration). Pour une image ou une vidéo en plein écran (logo, photo…), utilise ajouter_media.",
+     S({'style': {'type': 'string', 'enum': ['title', 'chapter', 'narr']}, 'texte': STR, 'sous_texte': STR, 'duree': NUM,
+        'fond': {'type': 'string', 'description': 'couleur de fond #rrggbb (noir par défaut)'}, 'couleur': {'type': 'string', 'description': 'couleur du texte #rrggbb (blanc par défaut)'},
+        'bandeau': {'type': 'string', 'description': "title : couleur du bandeau #rrggbb, '' pour aucun"}, **POS}, ['style', 'texte']), ajouter_carton, True),
+    ('ajouter_arret_image', "Arrêt sur image avec zoom (moment fort), avec un son de la bibliothèque si on en donne un.",
      S({'source': STR, 'temps': NUM, 'duree': NUM, 'cible': {'description': "'visage', 'centre' ou [x, y] entre 0 et 1"},
         'echelle': NUM, 'son': STR, **POS}, ['source', 'temps']), ajouter_arret_image, True),
-    ('ajouter_media', "Ajoute un fichier (vidéo, image) en plein écran : chemin='outro' pour l'outro du pack.",
+    ('ajouter_media', "Ajoute une vidéo ou une image (logo, photo, affiche…) en plein écran : chemin = id d'une source du projet ou chemin d'un fichier (bibliothèque).",
      S({'chemin': STR, 'duree': NUM, 'fond_vert': {'type': 'boolean'}, **POS}, ['chemin']), ajouter_media, True),
-    ('ajouter_effets', "Ajoute des effets sur un plan (temps en secondes SOURCE, dans le plan). type : zoom {debut, fin, cible: 'visage'|'centre'|[x,y], echelle} (zoom sec), secousse {debut, fin, force}, teinte {debut, fin, mode: nb|rouge|flash}, son {temps, nom, volume_db}, texte {temps, duree, texte, style: gros|note|rip}, coupe {debut, fin} (enlève un passage), garder {debut, fin} (garde un silence), vitesse {debut, fin, facteur}, censure {debut, fin} (bip forcé).",
+    ('ajouter_effets', "Ajoute des effets sur un plan (temps en secondes SOURCE, dans le plan). type : zoom {debut, fin, cible: 'visage'|'centre'|[x,y], echelle} (zoom sec), secousse {debut, fin, force}, teinte {debut, fin, mode: nb|flash}, son {temps, nom, volume_db}, texte {temps, duree, texte, style: gros|note}, coupe {debut, fin} (enlève un passage), garder {debut, fin} (garde un silence), vitesse {debut, fin, facteur}, censure {debut, fin} (bip forcé).",
      S({'element': STR, 'effets': {'type': 'array', 'items': {'type': 'object', 'properties': {'type': {'type': 'string', 'enum': list(FX_KINDS)}}, 'required': ['type']}}},
        ['element', 'effets']), ajouter_effets, True),
     ('supprimer_effets', "Supprime des effets d'un plan, par ids et/ou par types (ex. types=['son']).",

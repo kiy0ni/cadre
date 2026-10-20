@@ -7,7 +7,7 @@ import { useStore } from '../lib/store';
 import { BigText, Modal, Seg } from '../lib/ui';
 import type { Pack, PackStyle } from '../types';
 import { mergeStyle } from '../remotion/resolve';
-import { fontFamily } from '../remotion/fonts';
+import { FONTS as FONT_FAMILIES, fontFamily } from '../remotion/fonts';
 import { tx } from '../lib/i18n';
 
 export function StylesPage() {
@@ -126,7 +126,7 @@ export function StylesPage() {
   );
 }
 
-const FONTS = ['Montserrat', 'Inter', 'Poppins', 'Bebas Neue'];
+const FONTS = Object.keys(FONT_FAMILIES);
 
 function StyleFields({ s, st }: { s: PackStyle; st: <K extends keyof PackStyle>(k: K, v: Partial<PackStyle[K]> | PackStyle[K]) => void }) {
   const c = s.captions;
@@ -163,10 +163,6 @@ function StyleFields({ s, st }: { s: PackStyle; st: <K extends keyof PackStyle>(
         <Num label={tx('Zoom centre')} v={s.zoom.center} step={0.05} on={(v) => st('zoom', { center: v })} />
         <Num label={tx('Visage x (0–1)')} v={s.face[0]} step={0.01} on={(v) => st('face', [v, s.face[1]])} />
         <Num label={tx('Visage y (0–1)')} v={s.face[1]} step={0.01} on={(v) => st('face', [s.face[0], v])} />
-      </div>
-      <div className="row wrap" style={{ gap: 14 }}>
-        <Check label={tx('Secousse sur les impacts')} v={s.shakeOnImpact} on={(v) => st('shakeOnImpact', v)} />
-        <Check label={tx('Son « whoosh » sur les zooms')} v={s.whooshOnFaceZoom} on={(v) => st('whooshOnFaceZoom', v)} />
       </div>
       <div className="section-title">{tx('Son')}</div>
       <div className="form-grid">

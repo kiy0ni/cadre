@@ -70,11 +70,6 @@ export const api = {
     fd.append('file', file);
     return req<{ source: Project['sources'][number] }>('POST', `/api/projects/${id}/upload`, fd);
   },
-  uploadLogo: (id: string, file: File) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    return req<{ logo: string; logoUrl: string }>('POST', `/api/projects/${id}/logo`, fd);
-  },
   deleteSource: (id: string, src: string) => req('DELETE', `/api/projects/${id}/sources/${src}`),
   sourceAction: (id: string, src: string, action: 'proxy' | 'transcribe' | 'speakers' | 'stems') => req<{ job: string }>('POST', `/api/projects/${id}/sources/${src}/${action}`),
   moments: (id: string, src: string) => req<{ t: number; pic: number; score: number; extrait: string }[]>('GET', `/api/projects/${id}/moments/${src}`),

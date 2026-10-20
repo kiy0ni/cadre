@@ -553,7 +553,7 @@
  "Rechercher": "検索",
  "Rechercher un effet": "エフェクトを検索",
  "Reconnaissance des voix": "話者認識",
- "Reconnaît qui parle et sépare la voix du fond sonore (jeu, musique). Téléchargement d'environ 2 Go.": "話者を識別し、声を背景音（ゲーム、音楽）から分離します。約2 GBのダウンロードが必要です。",
+ "Reconnaît qui parle et sépare la voix du fond sonore (musique, ambiance, jeu…). Téléchargement d'environ 2 Go.": "誰が話しているかを認識し、声を背景音（音楽、環境音、ゲームなど）から分離します。約2 GBのダウンロード。",
  "Reconnaître qui parle": "話者を識別",
  "Recréer": "再作成",
  "Recréer depuis la transcription": "文字起こしから再作成",
@@ -826,5 +826,11 @@
  "Se connecter": "ログイン",
  "Se déconnecter de cet appareil": "このデバイスからログアウト",
  "défini": "設定済み",
- "non défini : accès à distance fermé": "未設定：リモートアクセスは無効"
+ "non défini : accès à distance fermé": "未設定：リモートアクセスは無効",
+ "Ancien style": "旧スタイル",
+ "Bandeau": "帯",
+ "Personnalisé · {0}×{1}": "カスタム · {0}×{1}",
+ "Personnalisé…": "カスタム…",
+ "Sous-texte": "サブテキスト",
+ "Séquence": "シーケンス"
 }
