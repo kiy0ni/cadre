@@ -1,13 +1,14 @@
-// État de l'éditeur : projet courant, historique (annuler / rétablir), sélection, tête de lecture, tâches, IA.
+// Editor state: current project, history (undo / redo), selection, playhead, jobs, AI.
 import { create } from 'zustand';
 import type { PlayerRef } from '@remotion/player';
-import type { EffectPreset, AiMode, Block, ConvMsg, JobEvent, JobInfo, Library, Pack, Project, Speaker, Usage, Word } from '../types';
+import type { PrepStage, Todo, EffectPreset, AiMode, Block, ConvMsg, JobEvent, JobInfo, Library, Pack, Project, Speaker, Usage, Word } from '../types';
 import { api, followJob, type AiStatus, type Render } from './api';
 import { getLang, tx } from './i18n';
 
 export type Workspace = 'edit' | 'color' | 'audio' | 'export';
 export interface Selection { itemId?: string; capId?: string; fxId?: string; musicId?: string; clipId?: string; trackId?: string }
-export interface LiveTurn { user: Extract<ConvMsg, { role: 'user' }> | null; blocks: Block[]; usage: Usage | null; startedAt: number; logs: string[] }
+export interface LiveTurn { user: Extract<ConvMsg, { role: 'user' }> | null; blocks: Block[]; usage: Usage | null; startedAt: number; logs: string[];
+  stages?: PrepStage[]; todos?: Todo[] }
 
 interface S {
   packs: Pack[];
@@ -63,11 +64,13 @@ interface S {
   pollJobs: () => Promise<void>;
   watchJob: (id: string) => void;
   askAi: (prompt: string, opts?: { mode?: AiMode; conversation?: string | null }) => Promise<void>;
+  /** follows an AI request that is already running (its own, or that of a new project created with a prompt) */
+  attachAi: (job: string, prompt: string, before?: Project, from?: { conversation?: string | null; startedAt?: number }) => Promise<void>;
   notify: (msg: string | null) => void;
 }
 
-// Tête de lecture : diffusée hors de React (les composants qui la dessinent s'abonnent et bougent le DOM directement),
-// et recopiée dans le store au plus 5 fois par seconde pendant la lecture : la lecture ne re-rend pas toute l'interface.
+// Playhead: broadcast outside React (the components that draw it subscribe and move the DOM directly),
+// and copied into the store at most 5 times per second during playback, so playback does not re-render the whole UI.
 const frameSubs = new Set<(f: number) => void>();
 let liveFrame = 0;
 let lastStoreSync = 0;
@@ -81,7 +84,7 @@ export const getPlayer = () => player;
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-// Historique : chaque état du projet garde le nom de la modification qui l'a produit (panneau Historique).
+// History: each project state keeps the name of the change that produced it (History panel).
 export const histMeta = new WeakMap<Project, { label: string; t: number }>();
 const LABELS: [RegExp, string][] = [[/trim/, tx('Rognage')], [/drag/, tx('Déplacement')], [/color/, tx('Couleur')], [/look/, tx('Image')], [/mix|trk/, tx('Mixage')],
   [/cap/, tx('Sous-titre')], [/txt/, tx('Texte')], [/fx/, tx('Effet')], [/vol|fin|fout/, tx('Audio')], [/speed/, tx('Vitesse')], [/prefs/, tx('Consignes')], [/name|title/, tx('Nom')],
@@ -112,11 +115,11 @@ export const useStore = create<S>((set, get) => {
     packs: [], speakers: [], library: null, ai: null, settings: null, presets: [], project: null, words: {}, renders: [], past: [], future: [],
     lastMerge: null, sel: {}, frame: 0, playing: false, saving: 'saved', jobs: [], aiJob: null, aiConv: null, live: null, toast: null,
     aiMode: ((): AiMode => { try { return (localStorage.getItem('cadre-aimode') as AiMode) || 'auto'; } catch { return 'auto'; } })(),
-    setAi: (p) => { if (p.aiMode) { try { localStorage.setItem('cadre-aimode', p.aiMode); } catch { /* stockage indisponible */ } } set(p); },
+    setAi: (p) => { if (p.aiMode) { try { localStorage.setItem('cadre-aimode', p.aiMode); } catch { /* storage unavailable */ } } set(p); },
     tool: 'select', snap: true, workspace: 'edit', upperTab: 'props', lowerTab: 'project', sourceId: null,
     assistant: (() => { try { return localStorage.getItem('cadre-assistant') !== '0'; } catch { return true; } })(),
     setUi: (p) => {
-      if (p.assistant !== undefined) { try { localStorage.setItem('cadre-assistant', p.assistant ? '1' : '0'); } catch { /* stockage indisponible */ } }
+      if (p.assistant !== undefined) { try { localStorage.setItem('cadre-assistant', p.assistant ? '1' : '0'); } catch { /* storage unavailable */ } }
       set(p);
     },
 
@@ -125,9 +128,9 @@ export const useStore = create<S>((set, get) => {
       set({ packs: b.packs, speakers: b.speakers, ai: b.ai, settings: b.settings });
       const ui = (b.settings as { ui?: { snap?: boolean; aiMode?: AiMode } }).ui || {};
       if (ui.snap !== undefined) set({ snap: ui.snap });
-      try { if (!localStorage.getItem('cadre-aimode') && ui.aiMode) set({ aiMode: ui.aiMode }); } catch { /* stockage indisponible */ }
+      try { if (!localStorage.getItem('cadre-aimode') && ui.aiMode) set({ aiMode: ui.aiMode }); } catch { /* storage unavailable */ }
       api.presets().then((presets) => set({ presets })).catch(() => undefined);
-      // la banque se construit côté serveur en tâche de fond : on réessaie tant qu'elle n'est pas prête
+      // the library is built server-side in the background: keep retrying until it is ready
       const load = async (n = 0): Promise<void> => {
         try {
           const lib = await api.library();
@@ -148,7 +151,11 @@ export const useStore = create<S>((set, get) => {
         live: null, aiJob: null, aiConv: r.project.conversations?.[0]?.id || null, sourceId: null, workspace: 'edit' });
       const jobs = await api.jobs(id);
       set({ jobs });
-      for (const j of jobs) if (j.status === 'queued' || j.status === 'running') get().watchJob(j.id);
+      for (const j of jobs) {
+        if (j.status !== 'queued' && j.status !== 'running') continue;
+        if (j.kind === 'ai') get().attachAi(j.id, j.label.replace(/^AI: /, ''), r.project, { conversation: (j.meta?.conversation as string | null | undefined) ?? null, startedAt: j.created * 1000 });
+        else get().watchJob(j.id);
+      }
     },
     close: () => set({ project: null, words: {}, past: [], future: [], sel: {} }),
 
@@ -160,7 +167,8 @@ export const useStore = create<S>((set, get) => {
       fn(next);
       const now = Date.now();
       const lm = get().lastMerge;
-      const coalesce = merge && lm && lm.key === merge && now - lm.t < 1200;
+      // one gesture (drag, trim) = a single history step, however long it lasts; otherwise 1.2 s
+      const coalesce = merge && lm && lm.key === merge && (/^(drag|trim|mark):/.test(merge) || now - lm.t < 1200);
       histMeta.set(next, { label: label || labelFor(merge), t: now });
       set({
         project: next,
@@ -275,7 +283,14 @@ export const useStore = create<S>((set, get) => {
           lang: getLang(),
         },
       });
-      set({ aiJob: job, live: { user: null, blocks: [], usage: null, startedAt: Date.now(), logs: [] }, past: [...get().past.slice(-99), before], future: [] });
+      await get().attachAi(job, prompt, before);
+    },
+    attachAi: async (job, prompt, before, from) => {
+      const p = get().project;
+      if (!p || get().aiJob === job) return;
+      set({ aiJob: job, live: { user: null, blocks: [], usage: null, startedAt: from?.startedAt || Date.now(), logs: [] },
+        ...(from && from.conversation !== undefined ? { aiConv: from.conversation } : {}),       // request without a conversation: blank view
+        ...(before ? { past: [...get().past.slice(-99), before], future: [] } : {}) });
       get().watchJob(job);
       const patch = (fn: (l: LiveTurn) => LiveTurn) => { const l = get().live; if (l) set({ live: fn(l) }); };
       let done: { status: string; error?: string | null };
@@ -305,11 +320,13 @@ export const useStore = create<S>((set, get) => {
           }));
           else if (e.type === 'usage') patch((l) => ({ ...l, usage: e.usage as Usage }));
           else if (e.type === 'log') patch((l) => ({ ...l, logs: [...l.logs.slice(-20), String(e.text)] }));
+          else if (e.type === 'stages') patch((l) => ({ ...l, stages: e.stages as PrepStage[] }));
+          else if (e.type === 'todos') patch((l) => ({ ...l, todos: e.items as Todo[] }));
         });
       } catch (e) {
         done = { status: 'error', error: (e as Error).message };
       }
-      // quoi qu'il arrive, l'éditeur redevient modifiable (sinon toute retouche est refusée jusqu'à la réouverture)
+      // whatever happens, the editor becomes editable again (otherwise every edit is refused until the project is reopened)
       try {
         const fresh = await api.project(p.id);
         histMeta.set(fresh.project, { label: `Assistant : ${prompt.split('\n')[0].slice(0, 60)}`, t: Date.now() });
@@ -317,7 +334,7 @@ export const useStore = create<S>((set, get) => {
       } catch {
         set({ aiJob: null, live: null });
       }
-      // l'assistant a pu lancer des tâches (export…) : on les suit aussi
+      // the assistant may have started jobs (export…): follow them too
       const js = await api.jobs(p.id).catch(() => []);
       for (const j of js) if (j.status === 'queued' || j.status === 'running') get().watchJob(j.id);
       if (done.status === 'error') set({ toast: `IA : ${done.error}` });

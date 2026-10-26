@@ -1,4 +1,4 @@
-// Markdown léger des réponses de l'IA : titres, listes, **gras**, *italique*, `code`, blocs de code, liens.
+// Lightweight Markdown for AI replies: headings, lists, **bold**, *italic*, `code`, code blocks, links.
 import type { ReactNode } from 'react';
 
 function inline(text: string, key: string): ReactNode[] {

@@ -1,6 +1,6 @@
-// Langues de l'interface. Le texte source est en français ; chaque langue est un dictionnaire « texte français -> traduction »
-// (src/lib/locales/*.json, généré depuis le code : scripts/i18n.mjs). Une chaîne non traduite reste en français.
-// tx('Supprimer « {0} » ?', nom) : {0}, {1}… sont remplacés par les arguments.
+// UI languages. The source text is French; each language is a "French text -> translation" dictionary
+// (src/lib/locales/*.json, generated from the code: scripts/i18n.mjs). An untranslated string stays in French.
+// tx('Supprimer « {0} » ?', name): {0}, {1}… are replaced by the arguments.
 import en from './locales/en.json';
 import es from './locales/es.json';
 import de from './locales/de.json';
@@ -16,7 +16,7 @@ function detect(): Lang {
   try {
     const saved = localStorage.getItem('cadre-lang') as Lang | null;
     if (saved && saved in DICTS) return saved;
-  } catch { /* stockage indisponible */ }
+  } catch { /* storage unavailable */ }
   const nav = (navigator.language || 'fr').slice(0, 2) as Lang;
   return nav in DICTS ? nav : 'en';
 }
@@ -26,21 +26,21 @@ document.documentElement.lang = lang;
 
 export const getLang = () => lang;
 
-/** change la langue (l'interface est rechargée pour tout traduire d'un coup) */
+/** changes the language (the UI is reloaded to translate everything at once) */
 export function setLang(l: Lang) {
-  try { localStorage.setItem('cadre-lang', l); } catch { /* stockage indisponible */ }
+  try { localStorage.setItem('cadre-lang', l); } catch { /* storage unavailable */ }
   lang = l;
   window.location.reload();
 }
 
 export function tx(s: string, ...args: (string | number)[]): string {
-  // « texte|contexte » : même texte français, sens différent (ex. « Plan|mode » de l'assistant vs un plan de la timeline)
+  // "text|context": same French text, different meaning (e.g. the assistant's "Plan|mode" vs a "plan" = clip in the timeline)
   const tr = (lang === 'fr' ? null : DICTS[lang][s]) || s.split('|')[0];
   return args.length ? tr.replace(/\{(\d+)\}/g, (_, i) => String(args[Number(i)] ?? '')) : tr;
 }
 
-/** format de date / nombre selon la langue */
+/** date / number formatting for the language */
 export const locale = () => ({ fr: 'fr-FR', en: 'en-US', es: 'es-ES', de: 'de-DE', it: 'it-IT', pt: 'pt-PT', ja: 'ja-JP' }[lang]);
 
-/** alias (ancien nom) */
+/** alias (old name) */
 export const t = tx;

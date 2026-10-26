@@ -1,6 +1,6 @@
-// Rendu final : node scripts/render.mjs <props.json> <sortie> [options JSON | final | draft]
-// options : { codec: h264|h265|prores|wav, crf, scale, proresProfile }. La composition (src/remotion) est empaquetée
-// une fois puis réutilisée tant qu'elle ne change pas. Progression en JSON sur stdout.
+// Final render: node scripts/render.mjs <props.json> <output> [JSON options | final | draft]
+// options: { codec: h264|h265|prores|wav, crf, scale, proresProfile }. The composition (src/remotion) is bundled
+// once, then reused as long as it does not change. Progress is reported as JSON on stdout.
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const [propsPath, out, rawOpts = 'final'] = process.argv.slice(2);
 if (!propsPath || !out) {
-  console.error('usage : node scripts/render.mjs props.json sortie [options]');
+  console.error('usage: node scripts/render.mjs props.json output [options]');
   process.exit(2);
 }
 let opts;
@@ -20,7 +20,7 @@ const src = path.join(here, '..', 'src');
 const say = (o) => process.stdout.write(JSON.stringify(o) + '\n');
 const inputProps = JSON.parse(fs.readFileSync(propsPath, 'utf8'));
 
-/** empreinte des fichiers de la composition : on ne ré-empaquette que s'ils ont changé */
+/** fingerprint of the composition files: only re-bundle when they have changed */
 function fingerprint() {
   const h = crypto.createHash('sha1');
   const walk = (d) => {
@@ -40,19 +40,19 @@ if (!serveUrl) {
   const dir = path.join(os.tmpdir(), `cadre-bundle-${fingerprint()}`);
   if (fs.existsSync(path.join(dir, 'index.html'))) serveUrl = dir;
   else {
-    say({ progress: 0, message: 'préparation du moteur de rendu…' });
+    say({ progress: 0, message: 'preparing the renderer…' });
     const { bundle } = await import('@remotion/bundler');
     serveUrl = await bundle({
       entryPoint: path.join(src, 'remotion', 'index.ts'),
       outDir: dir,
-      onProgress: (p) => say({ progress: 0.05 * (p / 100), message: `préparation ${p} %` }),
+      onProgress: (p) => say({ progress: 0.05 * (p / 100), message: `preparing ${p}%` }),
     });
   }
 }
 
 const composition = await selectComposition({ serveUrl, id: 'Main', inputProps });
 const total = composition.durationInFrames;
-say({ progress: 0.05, message: `rendu de ${total} images (${(total / composition.fps / 60).toFixed(1)} min)…` });
+say({ progress: 0.05, message: `rendering ${total} frames (${(total / composition.fps / 60).toFixed(1)} min)…` });
 
 const codec = ['h264', 'h265', 'prores', 'wav'].includes(opts.codec) ? opts.codec : 'h264';
 let lastPct = -1;
@@ -73,8 +73,8 @@ await renderMedia({
     const pct = Math.floor(progress * 100);
     if (pct !== lastPct) {
       lastPct = pct;
-      say({ progress: 0.05 + 0.95 * progress, message: `${stitchStage === 'muxing' ? 'assemblage' : 'rendu'} ${pct} % (${renderedFrames}/${total} images, ${encodedFrames} encodées)` });
+      say({ progress: 0.05 + 0.95 * progress, message: `${stitchStage === 'muxing' ? 'muxing' : 'rendering'} ${pct}% (${renderedFrames}/${total} frames, ${encodedFrames} encoded)` });
     }
   },
 });
-say({ progress: 1, message: 'rendu terminé' });
+say({ progress: 1, message: 'render complete' });

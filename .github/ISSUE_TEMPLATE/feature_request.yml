@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an idea for the editor or the assistant
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The workflow or problem behind the request.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposed solution
+      description: How it could work in Cadre (and how other editors do it, if relevant).

@@ -1,4 +1,4 @@
-// Point d'entrée du rendu final (bundle Remotion) : une seule composition, taille et durée calculées depuis le projet.
+// Entry point for the final render (Remotion bundle): a single composition, size and duration computed from the project.
 import React from 'react';
 import { Composition } from 'remotion';
 import type { CompositionProps } from '../types';

@@ -1,0 +1,75 @@
+{
+ "id": "gaming-clip",
+ "name": "Vertical gaming clip",
+ "description": "Short / TikTok taken from a match or a live stream: a single highlight, 15-60 s, reframed to 9:16.",
+ "format": {
+  "width": 1080,
+  "height": 1920,
+  "fps": 30
+ },
+ "structure": "the moment, with just enough context (2-5 s before) → the reaction → punchline",
+ "rules": "# Vertical gaming clip\n- A single moment (win, fail, reaction, one-liner), 15 to 60 s, hook from the very first second.\n- Just enough context beforehand to understand it, then the reaction all the way through. No outro.\n- Horizontal reframing on the action or the facecam (the shot's `cadrage_horizontal`); important HUD elements must stay visible.\n- Big subtitles, few words at a time, above the bottom HUD.\n- The game audio stays present; one sound effect or one zoom on the peak of the moment, no more.",
+ "style": {
+  "captions": {
+   "font": "Montserrat",
+   "weight": 900,
+   "size": 110,
+   "color": "#FFFFFF",
+   "outline": 6,
+   "shadow": 3,
+   "bottom": 360,
+   "mode": "words",
+   "case": "upper",
+   "uppercase": true,
+   "pop": true,
+   "shoutScale": 1.18,
+   "maxChars": 16,
+   "wordsPerCaption": 2
+  },
+  "jumpCuts": {
+   "enabled": true,
+   "gap": 1.0,
+   "pre": 0.15,
+   "post": 0.35
+  },
+  "baseSpeed": 1.0,
+  "face": [
+   0.5,
+   0.4
+  ],
+  "zoom": {
+   "face": 1.35,
+   "center": 1.2
+  },
+  "shakeOnImpact": false,
+  "whooshOnFaceZoom": false,
+  "music": {
+   "db": -22,
+   "duckDb": 8
+  },
+  "sfxDb": 0,
+  "censor": {
+   "captions": false,
+   "audio": false,
+   "duckDb": -22
+  },
+  "stems": {
+   "enabled": true,
+   "gameBoostDb": 4,
+   "gameUnderVoiceDb": 5
+  },
+  "cards": {
+   "twitchHandle": "",
+   "twitchColor": "#9146FF"
+  },
+  "topText": "",
+  "loudness": -14
+ },
+ "builtin": true,
+ "speakers": [],
+ "defaultSpeaker": null,
+ "whisper": {
+  "language": "",
+  "prompt": ""
+ }
+}

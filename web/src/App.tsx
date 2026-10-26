@@ -49,7 +49,7 @@ export function App() {
       if (s && !s.onboarded) setSetup(true);
     }).catch((e) => setErr(String(e)));
   }, [boot]);
-  // menu de l'appli de bureau : dans un champ texte, annuler / rétablir agissent sur le texte ; sinon sur le montage
+  // desktop app menu: in a text field, undo / redo act on the text; otherwise on the edit
   useEffect(() => desktop()?.onMenu((a) => {
     const el = document.activeElement as HTMLElement | null;
     const typing = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);

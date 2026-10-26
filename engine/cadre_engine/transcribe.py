@@ -1,5 +1,6 @@
-"""Transcription mot à mot : Whisper large-v3-turbo. MLX sur Mac Apple Silicon (rapide, GPU), faster-whisper ailleurs
-(Windows / Linux, GPU NVIDIA si présent). Les deux renvoient le même format : [[début, fin, mot, proba], ...]."""
+"""Word-level transcription: Whisper large-v3-turbo. MLX on Apple Silicon Macs (fast, GPU), faster-whisper elsewhere
+(Windows / Linux, NVIDIA GPU if present). Both return the same format: [[start, end, word, prob], ...].
+An empty language (None / '') lets Whisper auto-detect the spoken language."""
 import os
 import platform
 import sys
@@ -23,7 +24,7 @@ def _audio16(path, a, b, out):
 
 
 def chunk(path, a, b, language='fr', prompt='', model='turbo'):
-    """transcrit [a, b] de la source -> mots en temps absolus"""
+    """transcribes [a, b] of the source -> words in absolute times"""
     tmp = os.path.join(CACHE, f'_asr_{os.getpid()}.wav')
     _audio16(path, a, b, tmp)
     mlx_id, fw_id = MODELS.get(model, MODELS['turbo'])

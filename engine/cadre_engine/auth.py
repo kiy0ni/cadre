@@ -1,11 +1,10 @@
-"""Accès à distance protégé par mot de passe.
+"""Password-protected remote access.
 
-- Depuis le Mac lui-même (appli de bureau, http://127.0.0.1:8765) : aucun mot de passe.
-- Depuis n'importe quel autre appareil (Tailscale, lien public) : les pages de l'interface se chargent, mais toutes les
-  données (/api, /mcp) exigent une session ouverte avec le mot de passe. Sans mot de passe défini, l'accès à distance
-  est fermé.
-- Mot de passe : haché (PBKDF2-SHA256, sel aléatoire) dans DATA/auth.json, jamais en clair. Sessions : jeton aléatoire
-  dans un cookie HttpOnly / Secure / SameSite=Lax, valable 30 jours. Trop d'essais ratés depuis une adresse : blocage."""
+- From the Mac itself (desktop app, http://127.0.0.1:8765): no password.
+- From any other device (Tailscale, public link): the UI pages load, but all data (/api, /mcp) requires a session
+  opened with the password. With no password set, remote access is closed.
+- Password: hashed (PBKDF2-SHA256, random salt) in DATA/auth.json, never in plain text. Sessions: random token
+  in an HttpOnly / Secure / SameSite=Lax cookie, valid for 30 days. Too many failed attempts from one address: blocked."""
 import hashlib
 import hmac
 import os
@@ -19,7 +18,7 @@ AUTH_F = os.path.join(DATA, 'auth.json')
 COOKIE = 'cadre_session'
 TTL = 30 * 86400
 _lock = threading.Lock()
-_fails = {}                     # ip -> [instants des échecs]
+_fails = {}                     # ip -> [failure timestamps]
 ITER = 240_000
 
 
@@ -38,12 +37,12 @@ def configured():
 
 
 def set_password(pw):
-    if len(pw or '') < 8: raise ValueError('8 caractères minimum')
+    if len(pw or '') < 8: raise ValueError('8 characters minimum')
     salt = secrets.token_bytes(16)
     h = hashlib.pbkdf2_hmac('sha256', pw.encode(), salt, ITER)
     with _lock:
         d = _load()
-        d.update(hash=h.hex(), salt=salt.hex(), sessions={})       # changer le mot de passe déconnecte tout le monde
+        d.update(hash=h.hex(), salt=salt.hex(), sessions={})       # changing the password logs everyone out
         _save(d)
 
 
@@ -91,7 +90,7 @@ def end_session(tok):
 
 
 def is_local(req):
-    """requête venue du Mac lui-même, sans passer par un proxy (Tailscale Serve / Funnel ajoutent des en-têtes)"""
+    """request from the Mac itself, not through a proxy (Tailscale Serve / Funnel add headers)"""
     host = (req.headers.get('host') or '').rsplit(':', 1)[0].strip('[]')
     client = req.client.host if req.client else ''
     proxied = any(h in req.headers for h in ('x-forwarded-for', 'x-forwarded-host', 'tailscale-user-login', 'tailscale-funnel-request', 'forwarded'))

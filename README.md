@@ -1,118 +1,149 @@
 # Cadre
 
-Logiciel de montage vidéo avec un assistant IA intégré. On importe ses rushs, on choisit un style de montage :
-l'assistant monte (dérushage, plans, sous-titres, rythme, habillage sonore, titres, transitions, étalonnage), et tout
-reste modifiable à la main dans une interface de montage classique (moniteurs source / programme, timeline multipiste,
-propriétés, couleur avec scopes, table de mixage, export).
+**A video editor with an AI assistant built in.** Drop in your footage, describe the video you want, and watch the
+assistant build the edit on a real multitrack timeline: selects, cuts, captions, pacing, sound design, titles,
+transitions, color. Then take over. Everything the AI did is a normal clip, effect or setting you can move, trim,
+tweak or undo.
 
-macOS (Apple Silicon / Intel) et Windows 10/11 x64.
+macOS (Apple Silicon and Intel) and Windows 10/11 x64 · interface in English, French, Spanish, German, Italian,
+Portuguese and Japanese.
 
-## Installer
+- **AI-first, never a black box.** The assistant lays out its plan as a checklist, works step by step while the
+  timeline builds in front of you, explains its choices in the inspector and ends each turn with a summary of what
+  changed. Every turn can be rewound, and ⌘Z works too.
+- **A real editor.** Source and program monitors, a magnetic main storyline with free placement and gaps, video, title
+  and audio tracks, J/K/L, ripple and lift, linked and unlinked audio for J- and L-cuts, a color page with scopes, a
+  mixer, stackable effects with presets, transitions, titles, markers.
+- **Local by default.** Transcription runs on your machine (Whisper). Your media files never leave your computer.
+- **No lock-in.** Export the edit as XML for Premiere Pro or DaVinci Resolve, captions as SRT, video as H.264, HEVC,
+  ProRes, 4K or WAV.
 
-| Système | Fichier | Installation |
+## Install
+
+When a version is tagged, installers are attached to the [Releases](../../releases) page:
+
+| System | File | How |
 |---|---|---|
-| Mac Apple Silicon (M1…M4) | `Cadre-mac-apple-silicon.dmg` | Ouvrir, glisser Cadre dans Applications. |
-| Mac Intel | `Cadre-mac-intel.dmg` | Idem. |
-| Windows 10/11 | `Cadre-Setup-x64.exe` (fabriqué sur Windows) ou `Cadre-win-x64.zip` | Installateur : suivant, suivant. Zip : dézipper, lancer `Cadre.exe`. |
+| Mac, Apple Silicon (M1 and later) | `Cadre-mac-apple-silicon.dmg` | Open it, drag Cadre to Applications. |
+| Mac, Intel | `Cadre-mac-intel.dmg` | Same. |
+| Windows 10/11 | `Cadre-Setup-x64.exe` (or `Cadre-win-x64.zip`) | Run the installer (or unzip and start `Cadre.exe`). |
 
-Sans signature (voir Distribution), la première ouverture demande une confirmation : Mac → Réglages Système ›
-Confidentialité et sécurité › « Ouvrir quand même » ; Windows → SmartScreen › « Informations complémentaires » ›
-« Exécuter quand même ».
+Builds are not code-signed yet, so the first launch asks for confirmation. On macOS: System Settings › Privacy &
+Security › "Open Anyway". On Windows: SmartScreen › "More info" › "Run anyway". You can also build from source (see
+[Development](#development)).
 
-Au premier lancement, Cadre installe tout seul son moteur (Python et ses composants, quelques minutes, une seule fois).
-Rien d'autre à installer. Pour l'assistant : **Claude Code** connecté une fois (abonnement Claude), ou une clé d'API
-Anthropic dans la variable `ANTHROPIC_API_KEY`. Le montage manuel fonctionne sans IA.
+On first launch Cadre sets up its engine by itself (Python and its components; a few minutes, once). There is nothing
+else to install. Manual editing works without AI. For the assistant, either sign in to
+[Claude Code](https://claude.com/claude-code) once (Claude subscription) or set an Anthropic API key in
+`ANTHROPIC_API_KEY`.
 
-## Utiliser
+## Using Cadre
 
-1. **Nouveau projet** : un nom, un style de montage (YouTube, Short/TikTok, Podcast, Tutoriel, Cinématique, Sobre, ou un
-   style à soi), un format (16:9, 9:16, 1:1, 4:5).
-2. **Importer** les médias (fichiers, glisser-déposer, lien YouTube/Twitch). Cadre crée une copie allégée pour un aperçu
-   fluide et transcrit la parole.
-3. **Assistant** (⌘K) : « /monter », ou n'importe quelle demande (« raccourcis à 8 minutes », « étalonne en plus chaud »,
-   « ajoute le nom des intervenants »). Modes : Auto, Demander (validation de chaque modification), Plan (propose sans
-   toucher). Chaque message peut être annulé (« Revenir ici ») ; ⌘Z annule aussi tout ce qu'a fait l'assistant.
-4. **Retoucher** : espaces Montage, Couleur, Audio, Export. Raccourcis dans Réglages › Raccourcis clavier.
+1. **New project** (⌘N). Drop your media or paste a link (YouTube, Twitch…). Then describe what the AI should make, or
+   pick a recipe (gaming best-of, vertical gaming clip, vlog, short, interview, tutorial, music edit). Set target
+   length, captions, music, format and editing style. **Create and edit with AI** imports the media, waits for
+   transcription (shown step by step with real progress) and lets the assistant build the edit. Without a request,
+   the project opens ready for manual editing.
+2. **Assistant** (⌘K). Type `/` for ready-made commands (full edit, tighten pacing, shorten, check captions, color,
+   titles…) or ask anything: "cut it down to 8 minutes", "warmer grade", "add lower thirds with the speakers' names",
+   "do it like this video: <link>". Modes: *Auto*, *Ask* (approve each change) and *Plan* (proposes without touching
+   anything). Right-click a clip › *Ask the AI about this shot…* for a targeted fix.
+3. **Edit by hand** in the Edit, Color, Audio and Export workspaces. All shortcuts are listed in Settings › Keyboard
+   shortcuts.
 
-**Styles de montage** : des règles écrites que l'assistant suit + des réglages (sous-titres, rythme, cadrage, son).
-« Nouveau style › Décrire le style » : on décrit le montage voulu (et, en option, une vidéo de référence) ; l'IA écrit
-les règles et règle les valeurs.
+**Editing styles** combine written rules the assistant follows with render settings (captions, pacing, framing,
+sound). Built in: Dynamic YouTube, Gaming, Vertical gaming clip, Short / Reel / TikTok, Podcast, Tutorial, Cinematic
+and Minimal. *New style › Describe the style* lets the AI write a style from a description and, optionally, a
+reference video.
 
-**Effets** (panneau Effets, ou Propriétés › Effets › Ajouter) : mouvement à deux images clés (Ken Burns), fondus,
-miroir, flou, netteté, pixellisation, lueur, grain, aberration chromatique, N&B, sépia, teinte, négatif, bandes cinéma,
-coins arrondis, bordure, ombre portée ; empilables, réglables, activables, réordonnables. Looks de couleur,
-accentuations ponctuelles (zoom, secousse, flash, ralenti, accéléré, bip), transitions, titres. Un réglage réussi
-s'enregistre dans **Mes effets** (bouton ↓ du groupe Effets) et se réapplique d'un clic ou par glisser-déposer.
+**Reference videos.** Give the assistant a link or a file ("make it like …"). It opens it, looks at the frames, reads
+the speech and recognizes which sounds and music from your library are used, and when, so it can reproduce them.
 
-**Langues** : français, anglais, espagnol, allemand, italien, portugais, japonais (Réglages › Général). L'assistant
-répond dans la langue choisie. Ajouter ou compléter une langue : `node web/scripts/i18n.mjs` liste les textes manquants
-(dictionnaires dans `web/src/lib/locales/*.json`, clé = texte français).
+**Timeline essentials.** Drag from any panel onto any track. Everything moves and trims: shots, overlays, titles,
+music, sound effects, captions and effect markers. On V1, drag a shot freely (a gap opens before it), ⌘-drag to
+insert it between two shots, or drag it onto a video track to turn it into an overlay (and back). ⌥-drag duplicates,
+Esc cancels the current drag, Q / W trim to the playhead, ⇧Delete lifts, ⌘L unlinks or relinks audio.
 
-**Timeline** : glisser-déposer depuis les panneaux sur n'importe quelle piste, y compris A1 Voix, A2 Musique et
-A3 Bruitages ; déplacer, rogner, ⌥ + glisser pour dupliquer, Échap pour annuler le geste en cours ; plans V1 réordonnés
-en les glissant ; clic droit pour couper, copier, coller (⌘C / ⌘X / ⌘V), dupliquer, couper le son, supprimer.
+**Effects.** Two-keyframe motion (Ken Burns), fades, mirror, blur, sharpen, pixelate, glow, grain, chromatic
+aberration, B&W, sepia, hue, invert, letterbox, rounded corners, border and drop shadow, all stackable and
+reorderable. Save any setup to *My effects* and reapply it with a click or by drag and drop.
 
-**Vidéo d'exemple** : donne un lien ou un fichier à l'assistant (« fais comme dans … ») ; il l'ouvre, voit ses images,
-lit ses paroles et reconnaît les sons et musiques de ta bibliothèque utilisés (instants, position dans le morceau)
-pour les reproduire.
+**People.** Per-speaker caption color, notes for the assistant and an optional voiceprint for speaker recognition
+(the voices module, about 2 GB, installed from Settings).
 
-**Personnes** : couleur de sous-titres, consignes, empreinte vocale (reconnaissance de qui parle ; module « voix »
-à installer depuis Réglages, ~2 Go).
+**Libraries** (Settings). Folders of music, sound effects and visuals that Cadre indexes and the assistant uses.
 
-**Bibliothèques** (Réglages) : dossiers de musiques, sons, visuels réutilisables ; Cadre les classe et l'assistant s'en sert.
+**Remote access** (optional). From any device other than the computer running Cadre, a password is always required
+(Settings › Remote access; stored as a salted PBKDF2 hash, 30-day sessions, lockout after repeated failures). Without
+a password, remote access is closed. With [Tailscale](https://tailscale.com), run
+`tailscale serve --bg http://127.0.0.1:8765` for your own devices, or `tailscale funnel --bg http://127.0.0.1:8765` to
+reach it from any browser (still behind the password).
 
-**Accès à distance** : depuis un autre appareil que le Mac, Cadre demande toujours un mot de passe (Réglages › Accès à
-distance ; haché dans les données, sessions de 30 jours, blocage après 6 essais ratés). Sans mot de passe défini,
-l'accès à distance est fermé.
-- Sur tes appareils Tailscale : `tailscale serve --bg http://127.0.0.1:8765`.
-- Depuis n'importe quel navigateur (PC du travail…) : `tailscale funnel --bg http://127.0.0.1:8765` publie la même
-  adresse sur Internet (toujours derrière le mot de passe). Pour couper : `tailscale funnel --https=443 off`.
-  Le Mac doit rester allumé avec Cadre ouvert.
+## Privacy
 
-## Développement
+Transcription, speaker recognition, previews and rendering run locally. When you use the assistant, the project
+description (timeline, transcripts, settings) and the frames it chooses to look at are sent to Anthropic, through your
+Claude Code session or your API key. Your media files themselves are never uploaded.
+
+## Development
 
 ```
-engine/    moteur Python (FastAPI) : projets, médias, transcription, voix, IA, rendu      uv
-web/       interface React + composition Remotion (même code pour l'aperçu et le rendu)   pnpm
-desktop/   appli Electron : lance le moteur, fenêtre, menus, installation autonome         pnpm
+engine/    Python engine (FastAPI): projects, media, transcription, voices, AI tools, rendering     uv
+web/       React UI + Remotion composition (the same code renders the preview and the export)       pnpm
+desktop/   Electron shell: starts the engine, window and menus, self-contained installers           pnpm
 ```
+
+Requirements: [uv](https://docs.astral.sh/uv/), Node 22+ and [pnpm](https://pnpm.io). FFmpeg is downloaded
+automatically.
 
 ```sh
-cd engine && uv sync                       # (+ --extra voix pour la reconnaissance des voix)
-cd web && pnpm install && pnpm build       # interface servie par le moteur
-cd engine && uv run python -m cadre_engine.run       # http://127.0.0.1:8765
-cd web && pnpm dev                         # interface en direct (Vite), moteur à côté
+cd engine && uv sync                             # add --extra voix for speaker recognition / stem separation
+cd web && pnpm install && pnpm build             # the engine serves the built UI
+cd engine && uv run python -m cadre_engine.run   # http://127.0.0.1:8765
+cd web && pnpm dev                               # live UI (Vite) against the running engine
 ```
 
-Appli de bureau (`desktop/`) :
+Desktop app (`desktop/`, after `pnpm install`):
 
-- `pnpm package` : Cadre.app liée à ce dépôt (utilise `engine/.venv`), installée dans /Applications ;
-- `pnpm dist:mac`, `pnpm dist:mac-intel` : images disque autonomes (`desktop/dist/*.dmg`) ;
-- `pnpm dist:win` : sur Windows avec Inno Setup → `Cadre-Setup-x64.exe` ; ailleurs → zip.
+- `pnpm package`: Cadre.app linked to this checkout (uses `engine/.venv`), installed in /Applications.
+- `pnpm dist:mac`, `pnpm dist:mac-intel`: self-contained disk images in `desktop/dist/`.
+- `pnpm dist:win`: on Windows with Inno Setup, `Cadre-Setup-x64.exe`; elsewhere, a zip.
 
-## Distribution
+Translations live in `web/src/lib/locales/*.json`. UI strings are written in French in the source (`tx('…')`) and
+that text is the translation key. `node web/scripts/i18n.mjs` lists missing translations.
 
-- **Automatique** : `.github/workflows/release.yml` fabrique les 3 installateurs (Mac Apple Silicon, Mac Intel, Windows)
-  à chaque étiquette `v*` poussée sur GitHub et les publie dans une Release (page de téléchargement).
-- **Signature Mac** (supprime l'avertissement) : compte Apple Developer (99 $/an), certificat « Developer ID
-  Application ». Secrets : `MAC_CERT_P12_BASE64`, `MAC_CERT_PASSWORD`, `MAC_SIGN_ID` (nom du certificat), puis pour la
-  notarisation `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` (mot de passe d'application). En local : variables
-  `CADRE_SIGN_ID`, `APPLE_*` avant `pnpm dist:mac`.
-- **Signature Windows** (supprime SmartScreen) : certificat de signature de code (OV/EV, ou Azure Trusted Signing) ;
-  `CADRE_WIN_CERT` (fichier .pfx) et `CADRE_WIN_CERT_PASSWORD` avant `pnpm dist:win`.
-- Taille : ~175 Mo à télécharger, puis ~1 Go installé au premier lancement (Python, transcription).
+### Architecture
 
-Données : `~/Library/Application Support/Cadre` (macOS), `%APPDATA%\Cadre` (Windows) : projets, styles, personnes,
-caches, environnement du moteur. Journal : `~/Library/Logs/Cadre/cadre.log`.
+- A project is a JSON document (`engine/cadre_engine/store.py`, types in `web/src/types.ts`). Shot times are in
+  **source** seconds. `web/src/remotion/resolve.ts` resolves everything (silence cuts, speed, gaps, captions,
+  effects, tracks) to output frames: one pure function shared by the timeline, the live preview and the final render.
+- The assistant (`engine/cadre_engine/ai/`) works through about 40 tools (`tools.py`) that edit the project, and each
+  change is pushed to the UI live. It can look at frames (`regarder`, `regarder_montage`) and analyze reference videos
+  (`refs.py`). Two providers: the Anthropic API, or Claude Code (`claude -p`) with a small MCP server exposed by the
+  engine. Tool names are French identifiers, kept for compatibility with saved conversations.
+- Preview: Remotion Player on lightweight proxies, with the playhead driven outside React. Export: the same
+  composition rendered by `web/scripts/render.mjs` on the original files, then loudness-normalized to the style's
+  target.
 
-Points d'architecture :
+### Releases and signing
 
-- Le projet est un JSON (`engine/cadre_engine/store.py`, types dans `web/src/types.ts`). Les temps des plans sont en
-  secondes **source** ; `web/src/remotion/resolve.ts` calcule tout en images de sortie (coupes des silences, vitesse,
-  sous-titres, effets, musique, pistes).
-- L'assistant (`engine/cadre_engine/ai/`) appelle des outils (`tools.py`) qui modifient le projet ; chaque modification
-  est poussée à l'interface en direct. Il voit les images (`regarder`, `regarder_montage`). Deux accès : API Anthropic,
-  ou Claude Code (`claude -p`) avec un petit serveur MCP exposé par le moteur.
-- Aperçu : Remotion Player sur les copies allégées ; la tête de lecture est déplacée hors de React (pas de rendu de
-  l'interface à chaque image). Export : la même composition rendue par `web/scripts/render.mjs` sur les fichiers
-  d'origine, puis son normalisé au niveau du style (LUFS).
+`.github/workflows/release.yml` builds the three installers for every pushed `v*` tag and attaches them to a GitHub
+Release. Signing is optional and driven by repository secrets:
+
+- **macOS** (Developer ID): `MAC_CERT_P12_BASE64`, `MAC_CERT_PASSWORD`, `MAC_SIGN_ID`, plus `APPLE_ID`,
+  `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD` for notarization. Locally, set `CADRE_SIGN_ID` and `APPLE_*` before
+  `pnpm dist:mac`.
+- **Windows** (OV/EV certificate or Azure Trusted Signing): set `CADRE_WIN_CERT` (.pfx) and `CADRE_WIN_CERT_PASSWORD`
+  before `pnpm dist:win`.
+
+Data lives in `~/Library/Application Support/Cadre` (macOS) or `%APPDATA%\Cadre` (Windows): projects, styles, people,
+caches and the engine environment. Log: `~/Library/Logs/Cadre/cadre.log`.
+
+## Contributing
+
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability, see
+[SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Sacha Pastor

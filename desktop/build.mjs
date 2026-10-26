@@ -1,9 +1,9 @@
-// Fabrique l'appli Cadre.
-//   pnpm package                 Mac, liée à ce dépôt (utilise engine/.venv) et installée dans /Applications
-//   pnpm dist:mac                Mac autonome à distribuer (dist/Cadre-mac-<arch>.zip)
-//   pnpm dist:win                Windows autonome à distribuer (dist/Cadre-win-x64.zip)
-// L'appli autonome contient le moteur (sources), l'interface, le moteur de rendu et uv : au premier lancement, elle installe
-// Python et ses dépendances dans les données de l'utilisateur (rien à installer à la main).
+// Builds the Cadre app.
+//   pnpm package                 Mac, linked to this repo (uses engine/.venv) and installed in /Applications
+//   pnpm dist:mac                standalone Mac build for distribution (dist/Cadre-mac-<arch>.dmg)
+//   pnpm dist:win                standalone Windows build for distribution (dist/Cadre-Setup-x64.exe or dist/Cadre-win-x64.zip)
+// The standalone app contains the engine (sources), the UI, the render engine and uv: on first launch it installs
+// Python and its dependencies into the user's data folder (nothing to install by hand).
 import { packager } from '@electron/packager';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -24,7 +24,7 @@ const sh = (cmd, a, cwd = here) => execFileSync(cmd, a, { cwd, stdio: 'inherit',
 const version = JSON.parse(fs.readFileSync(path.join(here, 'package.json'), 'utf8')).version;
 const UV_VERSION = '0.11.8';
 
-console.log('construction de l’interface…');
+console.log('building the UI…');
 sh('pnpm', ['build'], web);
 
 fs.rmSync(stage, { recursive: true, force: true });
@@ -32,13 +32,13 @@ const extraResource = [];
 if (standalone) {
   fs.rmSync(path.join(here, 'app-path.json'), { force: true });
   const res = path.join(stage, 'cadre');
-  console.log('moteur…');
+  console.log('engine…');
   fs.mkdirSync(path.join(res, 'engine'), { recursive: true });
   for (const f of ['pyproject.toml', 'uv.lock', '.python-version']) fs.copyFileSync(path.join(engine, f), path.join(res, 'engine', f));
   fs.cpSync(path.join(engine, 'cadre_engine'), path.join(res, 'engine', 'cadre_engine'), { recursive: true, filter: (s) => !/__pycache__|\.pyc$/.test(s) });
-  console.log('interface…');
+  console.log('UI…');
   fs.cpSync(path.join(web, 'dist'), path.join(res, 'web', 'dist'), { recursive: true });
-  console.log('moteur de rendu…');
+  console.log('render engine…');
   const render = path.join(res, 'render');
   fs.mkdirSync(render, { recursive: true });
   fs.copyFileSync(path.join(web, 'scripts', 'render.mjs'), path.join(render, 'render.mjs'));
@@ -54,13 +54,13 @@ if (standalone) {
   if (local && platform === process.platform && arch === process.arch) fs.copyFileSync(local, path.join(bin, exe));
   else {
     const target = { 'darwin-arm64': 'aarch64-apple-darwin', 'darwin-x64': 'x86_64-apple-darwin', 'win32-x64': 'x86_64-pc-windows-msvc', 'win32-arm64': 'aarch64-pc-windows-msvc' }[`${platform}-${arch}`];
-    if (!target) throw new Error(`plateforme non prise en charge : ${platform}-${arch}`);
+    if (!target) throw new Error(`unsupported platform: ${platform}-${arch}`);
     const ext = platform === 'win32' ? 'zip' : 'tar.gz';
     const url = `https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${target}.${ext}`;
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cadre-uv-'));
     const arc = path.join(tmp, `uv.${ext}`);
     const r = await fetch(url);
-    if (!r.ok) throw new Error(`téléchargement de uv impossible (${r.status})`);
+    if (!r.ok) throw new Error(`could not download uv (${r.status})`);
     fs.writeFileSync(arc, Buffer.from(await r.arrayBuffer()));
     if (ext === 'zip') sh('unzip', ['-o', '-q', arc, '-d', tmp]); else sh('tar', ['-xzf', arc, '-C', tmp]);
     const found = execFileSync('find', [tmp, '-name', exe, '-type', 'f']).toString().trim().split('\n')[0];
@@ -70,11 +70,11 @@ if (standalone) {
   if (platform !== 'win32') fs.chmodSync(path.join(bin, exe), 0o755);
   extraResource.push(res, bin);
 } else {
-  if (platform !== 'darwin') throw new Error('le mode lié ne sert que sur ce Mac ; pour Windows : pnpm dist:win');
+  if (platform !== 'darwin') throw new Error('linked mode only works on this Mac; for Windows: pnpm dist:win');
   fs.writeFileSync(path.join(here, 'app-path.json'), JSON.stringify({ root }, null, 1));
 }
 
-console.log('empaquetage Electron…');
+console.log('packaging Electron…');
 const [out] = await packager({
   dir: here,
   name: 'Cadre',
@@ -93,12 +93,12 @@ const [out] = await packager({
   prune: false,
   ignore: [/^\/node_modules($|\/)/, /^\/out($|\/)/, /^\/dist($|\/)/, /^\/stage($|\/)/, /^\/build\.mjs$/, /^\/pnpm-/, /^\/icon\.(icns|ico)$/, /^\/bin($|\/)/, /^\/windows($|\/)/, /^\/entitlements\.plist$/],
   extendInfo: {
-    NSDocumentsFolderUsageDescription: 'Cadre lit les médias et bibliothèques rangés dans Documents.',
-    NSDesktopFolderUsageDescription: 'Cadre lit les médias posés sur le Bureau.',
-    NSDownloadsFolderUsageDescription: 'Cadre lit les médias téléchargés.',
-    NSRemovableVolumesUsageDescription: 'Cadre lit les médias sur les disques externes.',
-    NSNetworkVolumesUsageDescription: 'Cadre lit les médias sur les disques réseau.',
-    NSMicrophoneUsageDescription: 'Cadre enregistre la voix pour reconnaître qui parle dans les vidéos.',
+    NSDocumentsFolderUsageDescription: 'Cadre reads the media and libraries stored in Documents.',
+    NSDesktopFolderUsageDescription: 'Cadre reads the media on your Desktop.',
+    NSDownloadsFolderUsageDescription: 'Cadre reads downloaded media.',
+    NSRemovableVolumesUsageDescription: 'Cadre reads media on external drives.',
+    NSNetworkVolumesUsageDescription: 'Cadre reads media on network drives.',
+    NSMicrophoneUsageDescription: 'Cadre records voices to recognize who is speaking in videos.',
   },
 });
 
@@ -106,9 +106,9 @@ const dist = path.join(here, 'dist');
 const has = (cmd) => { try { execFileSync(process.platform === 'win32' ? 'where' : 'which', [cmd], { stdio: 'ignore' }); return true; } catch { return false; } };
 if (platform === 'darwin') {
   const built = path.join(out, 'Cadre.app');
-  // Signature : « Developer ID » (si CADRE_SIGN_ID est défini et le certificat installé) avec runtime renforcé, puis
-  // notarisation Apple (si APPLE_ID / APPLE_TEAM_ID / APPLE_APP_PASSWORD) : plus aucun avertissement à l'ouverture.
-  // Sinon signature ad hoc (l'appli s'ouvre par clic droit › Ouvrir la première fois).
+  // Signing: "Developer ID" (if CADRE_SIGN_ID is set and the certificate installed) with hardened runtime, then
+  // Apple notarization (if APPLE_ID / APPLE_TEAM_ID / APPLE_APP_PASSWORD are set): no warning at all on first open.
+  // Otherwise ad hoc signing (the first time, open the app with right-click › Open).
   const id = process.env.CADRE_SIGN_ID;
   if (process.platform === 'darwin') {
     if (id) sh('codesign', ['--force', '--deep', '--options', 'runtime', '--timestamp', '--entitlements', path.join(here, 'entitlements.plist'), '--sign', id, built]);
@@ -128,32 +128,32 @@ if (platform === 'darwin') {
       sh('xcrun', ['notarytool', 'submit', dmg, '--apple-id', process.env.APPLE_ID, '--team-id', process.env.APPLE_TEAM_ID, '--password', process.env.APPLE_APP_PASSWORD, '--wait']);
       sh('xcrun', ['stapler', 'staple', dmg]);
     }
-    console.log(`prêt : ${dmg}`);
+    console.log(`ready: ${dmg}`);
   } else {
     let dest = '/Applications/Cadre.app';
     try { fs.accessSync('/Applications', fs.constants.W_OK); } catch { dest = path.join(os.homedir(), 'Applications', 'Cadre.app'); }
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.rmSync(dest, { recursive: true, force: true });
     sh('ditto', [built, dest]);
-    console.log(`installé : ${dest}`);
+    console.log(`installed: ${dest}`);
   }
 } else {
   fs.mkdirSync(dist, { recursive: true });
-  // Sur Windows avec Inno Setup (iscc) : vrai installateur (menu Démarrer, raccourci, désinstallation, lien cadre://),
-  // signé si CADRE_WIN_CERT (fichier .pfx) et CADRE_WIN_CERT_PASSWORD sont définis. Sinon : archive zip.
+  // On Windows with Inno Setup (iscc): a real installer (Start menu, shortcut, uninstaller, cadre:// links),
+  // signed if CADRE_WIN_CERT (.pfx file) and CADRE_WIN_CERT_PASSWORD are set. Otherwise: a zip archive.
   if (process.platform === 'win32' && has('iscc')) {
     const cert = process.env.CADRE_WIN_CERT;
     if (cert) sh('signtool', ['sign', '/f', cert, '/p', process.env.CADRE_WIN_CERT_PASSWORD || '', '/fd', 'sha256', '/tr', 'http://timestamp.digicert.com', '/td', 'sha256', path.join(out, 'Cadre.exe')]);
     sh('iscc', [`/DAppVersion=${version}`, `/DSourceDir=${out}`, `/DOutputDir=${dist}`, `/DArch=${arch}`, path.join(here, 'windows', 'cadre.iss')]);
     const setup = path.join(dist, `Cadre-Setup-${arch}.exe`);
     if (cert) sh('signtool', ['sign', '/f', cert, '/p', process.env.CADRE_WIN_CERT_PASSWORD || '', '/fd', 'sha256', '/tr', 'http://timestamp.digicert.com', '/td', 'sha256', setup]);
-    console.log(`prêt : ${setup}`);
+    console.log(`ready: ${setup}`);
   } else {
     const zip = path.join(dist, `Cadre-win-${arch}.zip`);
     fs.rmSync(zip, { force: true });
     if (process.platform === 'win32') sh('powershell', ['-NoProfile', '-Command', `Compress-Archive -Path "${out}\\*" -DestinationPath "${zip}"`]);
     else sh('zip', ['-q', '-r', '-X', zip, path.basename(out)], path.dirname(out));
-    console.log(`prêt : ${zip} (installateur .exe : lancer « pnpm dist:win » sur Windows avec Inno Setup)`);
+    console.log(`ready: ${zip} (for the .exe installer, run "pnpm dist:win" on Windows with Inno Setup)`);
   }
 }
 fs.rmSync(path.join(here, 'out'), { recursive: true, force: true });

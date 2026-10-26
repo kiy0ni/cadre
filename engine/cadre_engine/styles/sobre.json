@@ -1,14 +1,14 @@
 {
  "id": "sobre",
- "name": "Sobre",
- "description": "Propre et posé : coupes des silences, sous-titres lisibles, presque pas d’effets.",
+ "name": "Minimal",
+ "description": "Clean and calm: silences cut, readable subtitles, almost no effects.",
  "format": {
   "width": 1920,
   "height": 1080,
   "fps": 30
  },
- "structure": "accroche → corps → conclusion",
- "rules": "# Sobre\n- Couper les silences et hésitations, garder les phrases entières.\n- Zooms légers et rares, aucun bruitage comique, musique discrète.\n- Sous-titres en phrases courtes.",
+ "structure": "hook → body → conclusion",
+ "rules": "# Minimal\n- Cut silences and hesitations, keep sentences whole.\n- Light, rare zooms, no comedic sound effects, discreet music.\n- Subtitles in short sentences.",
  "style": {
   "captions": {
    "font": "Inter",
@@ -69,7 +69,7 @@
  "speakers": [],
  "defaultSpeaker": null,
  "whisper": {
-  "language": "fr",
+  "language": "",
   "prompt": ""
  }
 }

@@ -1,14 +1,14 @@
 {
  "id": "short",
  "name": "Short / Reel / TikTok",
- "description": "Vertical 9:16, 15-60 s, accroche immédiate, sous-titres mot à mot.",
+ "description": "Vertical 9:16, 15-60 s, instant hook, word-by-word subtitles.",
  "format": {
   "width": 1080,
   "height": 1920,
   "fps": 30
  },
- "structure": "accroche dès la 1re seconde → le moment → chute",
- "rules": "# Short vertical\n- Une seule idée ou un seul moment, 15 à 60 s. Accroche dans la première seconde.\n- Recadrer sur l'action (recadrage horizontal du plan), garder le visage ou le sujet dans le cadre.\n- Sous-titres gros, 1 à 2 mots à la fois, au centre bas.\n- Coupes très serrées, zooms fréquents, bruitages sur chaque punchline.\n- Finir sur la chute, sans outro.",
+ "structure": "hook from the 1st second → the moment → punchline",
+ "rules": "# Vertical short\n- A single idea or a single moment, 15 to 60 s. Hook within the first second.\n- Reframe on the action (the shot's horizontal reframing), keep the face or the subject in frame.\n- Big subtitles, 1 to 2 words at a time, bottom center.\n- Very tight cuts, frequent zooms, a sound effect on every punchline.\n- End on the punchline, no outro.",
  "style": {
   "captions": {
    "font": "Montserrat",
@@ -69,7 +69,7 @@
  "speakers": [],
  "defaultSpeaker": null,
  "whisper": {
-  "language": "fr",
+  "language": "",
   "prompt": ""
  }
 }

@@ -1,5 +1,5 @@
-"""Export : la même composition que l'aperçu (web/src/remotion), rendue par Node avec les fichiers d'origine,
-puis son normalisé (LUFS du style) et chapitres YouTube. Préréglages : web, 4K, vertical, brouillon, ProRes, audio seul."""
+"""Export: the same composition as the preview (web/src/remotion), rendered by Node from the original files,
+then loudness-normalized audio (the style's LUFS) and YouTube chapters. Presets: web, 4K, vertical, draft, ProRes, audio only."""
 import json
 import os
 import re
@@ -17,24 +17,24 @@ PRESETS = {
     '4k':     {'label': '4K — H.264', 'codec': 'h264', 'crf': 18, 'scale': 2, 'ext': 'mp4'},
     'hevc':   {'label': 'HEVC — H.265', 'codec': 'h265', 'crf': 22, 'scale': 1, 'ext': 'mp4'},
     'prores': {'label': 'ProRes 422 HQ', 'codec': 'prores', 'proresProfile': 'hq', 'scale': 1, 'ext': 'mov'},
-    'draft':  {'label': 'Brouillon (½)', 'codec': 'h264', 'crf': 28, 'scale': 0.5, 'ext': 'mp4'},
-    'audio':  {'label': 'Audio seul — WAV', 'codec': 'wav', 'scale': 1, 'ext': 'wav'},
+    'draft':  {'label': 'Draft (½)', 'codec': 'h264', 'crf': 28, 'scale': 0.5, 'ext': 'mp4'},
+    'audio':  {'label': 'Audio only — WAV', 'codec': 'wav', 'scale': 1, 'ext': 'wav'},
 }
 
 
 def node_cmd():
-    """Node pour lancer le moteur de rendu : CADRE_NODE (le Node intégré de l'appli de bureau) ou celui du système."""
+    """Node used to run the renderer: CADRE_NODE (the desktop app's bundled Node) or the system one."""
     env = dict(os.environ)
     if os.environ.get('CADRE_NODE'):
         env['ELECTRON_RUN_AS_NODE'] = '1'
         return [os.environ['CADRE_NODE']], env
     node = shutil.which('node')
-    if not node: raise RuntimeError('Node introuvable pour le rendu')
+    if not node: raise RuntimeError('Node not found for rendering')
     return [node], env
 
 
 def props_for(p, quality='final'):
-    """tout ce que la composition doit savoir, avec des URL absolues (le moteur de rendu tourne hors du navigateur)."""
+    """everything the composition needs to know, with absolute URLs (the renderer runs outside the browser)."""
     pack = store.get_pack(p['packId']) or {}
     lib = library.ready() or {'sfx': {}}
     absu = lambda u: BASE_URL + u if u and u.startswith('/') else u
@@ -46,7 +46,7 @@ def props_for(p, quality='final'):
         s['proxy'] = absu(s.get('proxy')) if quality == 'draft' else None
         if s.get('stems'):
             s['stems'] = {k: absu(v) if isinstance(v, str) else v for k, v in s['stems'].items()}
-    if library.ready() is None:                   # bibliothèque pas lisible (accès en attente) : sans musique ni VFX protégés
+    if library.ready() is None:                   # library not readable (access pending): without protected music or VFX
         proj['music'] = [m for m in proj.get('music', []) if not locked(m.get('url'))]
         for tr in proj.get('tracks', []): tr['clips'] = [c for c in tr['clips'] if not locked(c.get('url'))]
         for it in proj['timeline']:
@@ -75,6 +75,7 @@ def chapters(p):
     ctx = Ctx(p)
     t, out = 0.0, []
     for it in p['timeline']:
+        t += float(it.get('before') or 0)
         if it.get('label'):
             out.append(f'{int(t // 60)}:{int(t % 60):02d} {it["label"]}')
         t += item_duration(ctx, it)
@@ -94,9 +95,9 @@ def render(p, job, preset='web'):
     json.dump(props_for(p, 'draft' if preset == 'draft' else 'final'), open(props_path, 'w'), ensure_ascii=False)
     raw = f'{d}/.{name}_{stamp}_raw.{opts["ext"]}'
     out = f'{d}/{name}_{stamp}{"_" + preset if preset != "web" else ""}.{opts["ext"]}'
-    job.step(0.01, 'préparation…')
+    job.step(0.01, 'preparing…')
     if library.ready() is None and store.settings().get('libraries'):
-        job.step(None, 'bibliothèque pas encore accessible : export sans ses sons')
+        job.step(None, 'library not accessible yet: exporting without its sounds')
     node, env = node_cmd()
     proc = subprocess.Popen([*node, RENDERER, props_path, raw, json.dumps(opts)], cwd=os.path.dirname(os.path.dirname(RENDERER)),
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
@@ -112,10 +113,10 @@ def render(p, job, preset='web'):
             except json.JSONDecodeError: pass
         if line: tail = (tail + [line])[-12:]
     if proc.wait() != 0:
-        raise RuntimeError("l'export a échoué :\n" + '\n'.join(tail))
+        raise RuntimeError("export failed:\n" + '\n'.join(tail))
     pack = store.get_pack(p['packId']) or {}
     lufs = (pack.get('style') or {}).get('loudness', -14)
-    job.step(0.93, f'son normalisé à {lufs} LUFS')
+    job.step(0.93, f'audio normalized to {lufs} LUFS')
     if opts['codec'] == 'wav':
         r = ff.run(['-y', '-loglevel', 'error', '-i', raw, '-af', f'loudnorm=I={lufs}:TP=-1.0:LRA=11', '-ar', '48000', out])
     else:
@@ -125,7 +126,7 @@ def render(p, job, preset='web'):
     if r.returncode != 0: os.replace(raw, out)
     else: os.remove(raw)
     ch = chapters(p)
-    if ch: open(re.sub(r'\.\w+$', '_chapitres.txt', out), 'w').write(ch + '\n')
+    if ch: open(re.sub(r'\.\w+$', '_chapters.txt', out), 'w').write(ch + '\n')
     os.remove(props_path)
     copy_to = ((store.settings().get('export') or {}).get('copyTo') or '').strip()
     if copy_to:
@@ -133,9 +134,9 @@ def render(p, job, preset='web'):
         try:
             os.makedirs(dst, exist_ok=True)
             shutil.copy2(out, os.path.join(dst, os.path.basename(out)))
-            job.step(None, f'copié dans {dst}')
+            job.step(None, f'copied to {dst}')
         except OSError as e:
-            job.step(None, f'copie impossible dans {dst} : {e}')
+            job.step(None, f'could not copy to {dst}: {e}')
     return {'path': out, 'url': file_url(out), 'chapters': ch}
 
 
@@ -144,7 +145,7 @@ def list_renders(p):
     if not os.path.isdir(d): return []
     out = []
     for f in sorted(os.listdir(d), key=lambda f: -os.path.getmtime(f'{d}/{f}')):
-        if f.rsplit('.', 1)[-1] in ('mp4', 'mov', 'wav') and not f.startswith('.'):
+        if f.rsplit('.', 1)[-1] in ('mp4', 'mov', 'wav', 'xml') and not f.startswith('.'):
             path = f'{d}/{f}'
             out.append({'name': f, 'path': path, 'url': file_url(path), 'size': os.path.getsize(path), 'created': os.path.getmtime(path)})
     return out

@@ -1,10 +1,10 @@
-// Aperçus servis par le serveur (calculés à la demande, mis en cache) : vignettes, planches (filmstrip), formes d'onde.
+// Previews served by the server (computed on demand, cached): thumbnails, filmstrips, waveforms.
 import { useEffect, useState, type CSSProperties } from 'react';
 
 export interface Sprite { url: string; interval: number; cols: number; n: number; w: number; h: number }
 export interface Peaks { rate: number; peaks: number[] }
 
-/** chemin disque d'une URL /api/file?p=… */
+/** disk path of a /api/file?p=… URL */
 export const pathOf = (url?: string | null) => {
   if (!url) return null;
   const m = url.match(/[?&]p=([^&]+)/);
@@ -52,7 +52,7 @@ function usePreview<T>(kind: 'sprite' | 'peaks', path: string | null | undefined
 export const useSprite = (path: string | null | undefined) => usePreview<Sprite>('sprite', path);
 export const usePeaks = (path: string | null | undefined) => usePreview<Peaks>('peaks', path);
 
-/** style CSS d'une vignette de la planche à l'instant t */
+/** CSS style of the filmstrip thumbnail at time t */
 export function spriteCell(sp: Sprite, t: number, h: number): CSSProperties {
   const i = Math.max(0, Math.min(sp.n - 1, Math.floor(t / sp.interval)));
   const scale = h / sp.h;
@@ -67,7 +67,7 @@ export function spriteCell(sp: Sprite, t: number, h: number): CSSProperties {
   };
 }
 
-/** plusieurs formes d'onde à la fois (une par source) */
+/** several waveforms at once (one per source) */
 export function usePeaksMany(paths: (string | null | undefined)[]): Record<string, Peaks> {
   const key = paths.filter(Boolean).sort().join('|');
   const [map, setMap] = useState<Record<string, Peaks>>({});
@@ -81,19 +81,19 @@ export function usePeaksMany(paths: (string | null | undefined)[]): Record<strin
   return map;
 }
 
-/** même chose pour les planches de vignettes */
+/** same thing for filmstrips */
 export function useSpritesMany(paths: (string | null | undefined)[]): Record<string, Sprite> {
   const key = paths.filter(Boolean).sort().join('|');
   const [map, setMap] = useState<Record<string, Sprite>>({});
   useEffect(() => {
     let live = true;
     for (const p of key ? key.split('|') : []) {
-      poll<Sprite>('sprite', p).then((x) => { if (live && x) setMap((m) => (m[p] ? m : { ...m, [p]: x })); });
+      poll<Sprite>('sprite', p).then((x) => { if (live && x && !(x as { none?: boolean }).none) setMap((m) => (m[p] ? m : { ...m, [p]: x })); });
     }
     return () => { live = false; };
   }, [key]);
   return map;
 }
 
-/** chemin à utiliser pour les aperçus d'une source : la vidéo légère si elle existe */
+/** path to use for a source's previews: the lightweight proxy video if it exists */
 export const previewPath = (s: { path: string; proxy?: string | null } | undefined) => (s ? pathOf(s.proxy) || s.path : null);

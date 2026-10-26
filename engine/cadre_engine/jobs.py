@@ -1,6 +1,6 @@
-"""Tâches de fond (transcription, proxy, voix, rendu, IA) avec progression et journal d'évènements.
-Les tâches lourdes (Whisper, Demucs, ECAPA, rendu) passent une par une dans la même file : elles se partagent la puce.
-L'IA tourne à part (elle attend surtout le réseau)."""
+"""Background jobs (transcription, proxy, voices, render, AI) with progress and an event log.
+Heavy jobs (Whisper, Demucs, ECAPA, render) run one at a time in the same queue: they share the chip.
+AI runs separately (it mostly waits on the network)."""
 import time, uuid, threading, traceback, queue
 
 JOBS = {}
@@ -25,7 +25,7 @@ class Job:
         self.error = None
         self.created = time.time()
         self.cancelled = False
-        self.proc = None            # sous-processus éventuel (rendu, claude -p), tué à l'annulation
+        self.proc = None            # optional subprocess (render, claude -p), killed on cancel
 
     def emit(self, type_, **data):
         with _lock:
@@ -35,8 +35,8 @@ class Job:
         if self.cancelled: raise Cancelled()
         if progress is not None: self.progress = max(0.0, min(1.0, progress))
         if message is not None:
+            if message != self.message: self.emit('log', text=message)     # no repeats in the log
             self.message = message
-            self.emit('log', text=message)
 
     def public(self, since=None):
         d = {k: getattr(self, k) for k in ('id', 'kind', 'project', 'label', 'status', 'progress', 'message', 'error',
@@ -56,7 +56,7 @@ def _run(job, fn):
         job.progress = 1.0
     except Cancelled:
         job.status = 'cancelled'
-    except Exception as e:                       # l'erreur part dans l'interface, avec la trace dans le terminal
+    except Exception as e:                       # the error goes to the UI, the traceback to the terminal
         traceback.print_exc()
         job.status = 'error'
         job.error = f'{type(e).__name__}: {e}'

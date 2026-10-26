@@ -1,5 +1,5 @@
-"""Lance le moteur sur 127.0.0.1, et aussi sur l'adresse Tailscale de la machine si elle en a une (accès à distance
-depuis ses propres appareils, jamais depuis le réseau local ni Internet).
+"""Starts the engine on 127.0.0.1, and also on the machine's Tailscale address if it has one (remote access from
+your own devices, never from the local network or the Internet).
 
     uv run python -m cadre_engine.run"""
 import os
@@ -14,7 +14,7 @@ from .config import PORT
 
 
 def tailscale_ip():
-    """adresse Tailscale (100.64.0.0/10) lue sur les interfaces réseau"""
+    """Tailscale address (100.64.0.0/10) read from the network interfaces"""
     try:
         if sys.platform == 'win32':
             out = subprocess.run(['ipconfig'], capture_output=True, text=True, timeout=10).stdout
@@ -41,15 +41,15 @@ def main():
     ip = tailscale_ip()
     if ip:
         try:
-            socks.append(bind(ip)); print(f'Tailscale : http://{ip}:{PORT}', flush=True)
+            socks.append(bind(ip)); print(f'Tailscale: http://{ip}:{PORT}', flush=True)
         except OSError as e:
-            print(f'adresse Tailscale {ip} indisponible : {e}', flush=True); ip = None
+            print(f'Tailscale address {ip} unavailable: {e}', flush=True); ip = None
     if not ip:
         def watch():
             while True:
                 time.sleep(30)
                 if tailscale_ip():
-                    print('Tailscale connecté : redémarrage', flush=True); os._exit(0)
+                    print('Tailscale connected: restarting', flush=True); os._exit(0)
         threading.Thread(target=watch, daemon=True).start()
     from .main import app
     uvicorn.Server(uvicorn.Config(app, log_level='warning', timeout_graceful_shutdown=2)).run(sockets=socks)

@@ -1,5 +1,5 @@
-// Résolution de la timeline : projet + transcriptions + style du pack -> tout ce qui est à l'écran et dans le son,
-// en images de sortie. Fonction pure : la même pour l'aperçu en direct, la timeline de l'éditeur et le rendu final.
+// Timeline resolution: project + transcripts + pack style -> everything on screen and in the audio,
+// in output frames. Pure function: the same for the live preview, the editor timeline and the final render.
 import type { CompositionProps, ClipItem, Item, Look, Mix, OAudio, OText, OVideo, PackStyle, SfxType, Target, TransitionKind, Word } from '../types';
 import { censorText, isSwear } from './censor';
 
@@ -7,10 +7,10 @@ export interface Seg {
   key: string;
   itemId: string;
   src: string;
-  a: number; // secondes source
+  a: number; // source seconds
   b: number;
   rate: number;
-  from: number; // image de sortie
+  from: number; // output frame
   dur: number;
   look?: Look;
 }
@@ -34,7 +34,7 @@ export interface CapEv {
   speaker: string | null;
 }
 
-/** effet d'un plan d'où vient l'évènement (pour le sélectionner / le déplacer dans la timeline) */
+/** shot effect the event comes from (to select / move it in the timeline) */
 export interface FxRef { itemId: string; fxId: string }
 export interface ZoomEv { from: number; dur: number; target: [number, number]; scale: number; auto?: boolean; ref?: FxRef }
 export interface ShakeEv { from: number; dur: number; amp: number; ref?: FxRef }
@@ -66,8 +66,8 @@ export interface Resolved {
   cards: CardEv[];
   freezes: FreezeEv[];
   medias: MediaEv[];
-  speech: [number, number][]; // images de sortie où quelqu'un parle (baisse de la musique / du jeu)
-  censors: [number, number][]; // gros mots (son baissé + bip)
+  speech: [number, number][]; // output frames where someone is speaking (music / game ducking)
+  censors: [number, number][]; // swear words (audio lowered + bleep)
   chapters: { from: number; label: string }[];
   transitions: TransEv[];
   overlays: OverlayEv[];
@@ -86,7 +86,7 @@ export const DEFAULT_STYLE: PackStyle = {
   whooshOnFaceZoom: false,
   music: { db: -15, duckDb: 5 },
   sfxDb: 0,
-  censor: { captions: true, audio: true, duckDb: -22 },
+  censor: { captions: false, audio: false, duckDb: -22 },
   stems: { enabled: false, gameBoostDb: 12, gameUnderVoiceDb: 4 },
   cards: { twitchHandle: '', twitchColor: '#B322C5' },
   topText: '',
@@ -112,7 +112,7 @@ export function mergeStyle(base: Partial<PackStyle> | undefined, over?: Partial<
 const IMPACTS = new Set(['hit', 'impact', 'bass', 'explosion', 'vine_boom', 'bonk']);
 export const dbToGain = (db: number) => Math.pow(10, db / 20);
 
-/** morceaux gardés d'un plan (coupes des silences) — même logique que server/ai/tools.py:pieces */
+/** kept pieces of a shot (silence cuts) — same logic as server/ai/tools.py:pieces */
 export function clipPieces(clip: ClipItem, words: Word[], style: PackStyle): [number, number][] {
   const a = clip.in;
   const b = clip.out;
@@ -157,7 +157,7 @@ export function clipPieces(clip: ClipItem, words: Word[], style: PackStyle): [nu
   return merged.filter(([s, e]) => e - s >= 0.08);
 }
 
-/** découpe les morceaux aux changements de vitesse -> [a, b, vitesse] */
+/** splits pieces at speed changes -> [a, b, speed] */
 function withSpeed(pieces: [number, number][], clip: ClipItem, base: number): [number, number, number][] {
   const speeds = clip.fx.filter((f) => f.kind === 'speed') as Extract<ClipItem['fx'][number], { kind: 'speed' }>[];
   const k = base * (clip.speed || 1);
@@ -221,19 +221,20 @@ export function resolve(props: CompositionProps): Resolved {
   const defaultColor = style.captions.color;
   const colorOf = (spk: string | null) => (spk && speakers?.[spk]?.color) || defaultColor;
 
-  let tOut = 0; // secondes de sortie (flottant, arrondi à chaque frontière)
+  let tOut = 0; // output seconds (float, rounded at each boundary)
   const speechSec: [number, number][] = [];
   const censorSec: [number, number][] = [];
   const capsRaw: (CapEv & { endSec: number; startSec: number })[] = [];
 
   for (const it of project.timeline) {
+    if (it.before && it.before > 0) tOut += it.before; // empty gap left before the element (black / silence)
     const from = Math.round(tOut * fps);
     const ri: RItem = { id: it.id, type: it.type, from, dur: 0, segs: [] };
     if (it.type === 'clip' && it.label) r.chapters.push({ from, label: it.label });
     if (it.type !== 'card' && it.transition && it.transition.dur > 0) {
       r.transitions.push({ from, dur: Math.max(1, Math.round(it.transition.dur * fps)), kind: it.transition.kind });
       const ts = TRANS_SFX[it.transition.kind];
-      if (ts) addSfx(ts, from / fps, -4, `${it.id}:tr`);
+      if (ts && !('audioOff' in it && it.audioOff && it.type !== 'clip' && it.type !== 'media')) addSfx(ts, from / fps, -4, `${it.id}:tr`);
     }
 
     if (it.type === 'clip') {
@@ -246,7 +247,7 @@ export function resolve(props: CompositionProps): Resolved {
         const f1 = Math.round(tOut * fps);
         if (f1 > f0) segs.push({ key: `${it.id}:${n}`, itemId: it.id, src: it.src, a, b, rate: k, from: f0, dur: f1 - f0, t0: f0 / fps, look: it.look });
       });
-      // temps source -> secondes de sortie (dans un trou coupé : début du morceau suivant)
+      // source time -> output seconds (inside a cut gap: start of the next piece)
       const mapT = (t: number): number => {
         for (const s of segs) {
           if (t < s.a) return s.from / fps;
@@ -259,7 +260,7 @@ export function resolve(props: CompositionProps): Resolved {
       ri.segs = segs;
       r.segs.push(...segs);
 
-      // parole (baisse musique / jeu) et gros mots
+      // speech (music / game ducking) and swear words
       for (const w of ws) {
         if (w[1] <= it.in || w[0] >= it.out) continue;
         const mid = (w[0] + w[1]) / 2;
@@ -311,7 +312,7 @@ export function resolve(props: CompositionProps): Resolved {
         if (shout || style.captions.uppercase) text = text.toUpperCase();
         capsRaw.push({ id: c.id, itemId: it.id, from: 0, dur: 0, startSec: a, endSec: Math.max(b, a + 0.35), text,
           color: colorOf(c.speaker), style: c.style, speaker: c.speaker });
-        // moment intense : gros zoom (visage si c'est la personne principale, centre sinon) + secousse sur un cri
+        // intense moment: big zoom (face if it's the main person, center otherwise) + shake on a shout
         if (c.style !== 'normal' && style.shakeOnImpact) {
           const hasZoom = it.fx.some((f) => f.kind === 'zoom' && f.t0 < c.t1 && f.t1 > c.t0);
           if (!hasZoom) {
@@ -328,8 +329,8 @@ export function resolve(props: CompositionProps): Resolved {
       const dur = Math.round(tOut * fps) - from;
       r.cards.push({ id: it.id, from, dur, item: it });
       const at = from / fps;
-      for (const so of it.sounds || []) addSfx(so.name, at + (so.at || 0), so.db || 0, `${it.id}:${so.id}`);
-      if (it.autoSfx === false) { /* sons automatiques coupés */ }
+      if (!it.audioOff) for (const so of it.sounds || []) addSfx(so.name, at + (so.at || 0), so.db || 0, `${it.id}:${so.id}`);
+      if (it.autoSfx === false || it.audioOff) { /* automatic sounds turned off */ }
       else if (it.style === 'logo') {
         addSfx('logo_hit', at + 0.14, 0, `${it.id}:1`);
         addSfx('logo_boom', at + 0.14, -2, `${it.id}:2`);
@@ -345,7 +346,7 @@ export function resolve(props: CompositionProps): Resolved {
       tOut += it.dur;
       const dur = Math.round(tOut * fps) - from;
       r.freezes.push({ id: it.id, from, dur, src: it.src, t: it.t, target: targetOf(it.target, null, style), scale: it.scale });
-      if (it.sfx) addSfx(it.sfx, from / fps, 0, `${it.id}:s`);
+      if (it.sfx && !it.audioOff) addSfx(it.sfx, from / fps, 0, `${it.id}:s`);
     } else if (it.type === 'media') {
       tOut += it.dur;
       const dur = Math.round(tOut * fps) - from;
@@ -356,7 +357,7 @@ export function resolve(props: CompositionProps): Resolved {
   }
   r.duration = Math.max(1, Math.round(tOut * fps));
 
-  // sous-titres : jamais deux à la fois ; on garde un sous-titre affiché jusqu'au suivant (0,5 s max)
+  // subtitles: never two at once; a subtitle stays on screen until the next one (0.5 s max)
   capsRaw.sort((x, y) => x.startSec - y.startSec);
   for (let i = 0; i < capsRaw.length; i++) {
     const c = capsRaw[i];
@@ -372,7 +373,7 @@ export function resolve(props: CompositionProps): Resolved {
   r.censors = mergeRanges(censorSec, 0.05).map(([a, b]) => [Math.round(a * fps), Math.round(b * fps)]);
   r.censors.forEach(([a], i) => addSfx('censor', a / fps, 0, `censor:${i}`));
 
-  // pistes libres (index 0 = la plus haute) : incrustations / textes au-dessus, audio à part
+  // free tracks (index 0 = topmost): overlays / texts on top, audio separately
   const tracks = project.tracks || [];
   tracks.forEach((tr, ti) => {
     for (const c of tr.clips) {
@@ -392,7 +393,7 @@ export function resolve(props: CompositionProps): Resolved {
   if (r.mix.captionsHidden) r.captions = [];
   if (r.mix.sfxMuted) r.sfx = [];
 
-  // musique : du début de l'élément A à la fin de l'élément B
+  // music: from the start of element A to the end of element B
   const byId = new Map(r.items.map((x) => [x.id, x]));
   for (const m of project.music || []) {
     const a = byId.get(m.fromItem);
@@ -407,7 +408,7 @@ export function resolve(props: CompositionProps): Resolved {
   return r;
 }
 
-/** vrai si l'image f est dans une des plages triées [a, b) */
+/** true if frame f is inside one of the sorted ranges [a, b) */
 export function inRanges(ranges: [number, number][], f: number): boolean {
   let lo = 0;
   let hi = ranges.length - 1;
@@ -421,7 +422,7 @@ export function inRanges(ranges: [number, number][], f: number): boolean {
   return false;
 }
 
-/** distance (images) à la plage la plus proche, pour adoucir les baisses de volume */
+/** distance (frames) to the nearest range, to smooth out volume ducking */
 export function nearRanges(ranges: [number, number][], f: number): number {
   let lo = 0;
   let hi = ranges.length - 1;
@@ -436,7 +437,7 @@ export function nearRanges(ranges: [number, number][], f: number): number {
   return best;
 }
 
-/** temps source d'un plan -> image de sortie (pour l'éditeur : clic dans la transcription, effets…) */
+/** source time of a shot -> output frame (for the editor: click in the transcript, effects…) */
 export function srcToFrame(r: Resolved, itemId: string, t: number): number | null {
   const it = r.items.find((x) => x.id === itemId);
   if (!it) return null;
@@ -447,7 +448,7 @@ export function srcToFrame(r: Resolved, itemId: string, t: number): number | nul
   return it.segs.length ? it.from + it.dur - 1 : it.from;
 }
 
-/** image de sortie -> (élément, temps source) */
+/** output frame -> (element, source time) */
 export function frameToSrc(r: Resolved, f: number): { itemId: string; t: number | null } | null {
   for (const it of r.items) {
     if (f >= it.from && f < it.from + it.dur) {

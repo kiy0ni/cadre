@@ -1,12 +1,12 @@
-// Raccourcis clavier de l'éditeur et actions du menu de l'appli de bureau.
+// Editor keyboard shortcuts and desktop app menu actions.
 import { useEffect } from 'react';
 import { getFrame, getPlayer, useStore } from '../lib/store';
-import { addMarker, copySelection, deleteSelection, duplicateSelection, jumpEdit, pasteAtPlayhead, splitAt, zoomHere } from './actions';
+import { addMarker, copySelection, deleteSelection, duplicateSelection, jumpEdit, pasteAtPlayhead, splitAt, toggleLink, trimToPlayhead, zoomHere } from './actions';
 import { tx } from '../lib/i18n';
 
-/** commandes du moniteur source, branchées quand il est affiché */
+/** source monitor controls, wired up while it is shown */
 export const sourceCtl: { markIn?: () => void; markOut?: () => void; insert?: () => void; overlay?: () => void; toggle?: () => void } = {};
-/** commandes de la timeline (zoom) */
+/** timeline controls (zoom) */
 export const timelineCtl: { zoom?: (k: number) => void; fit?: () => void } = {};
 
 export function focusAssistant() {
@@ -48,21 +48,25 @@ export function useShortcuts() {
       if (meta && k === 'x') { if (copySelection(true)) e.preventDefault(); return; }
       if (meta && k === 'v') { if (pasteAtPlayhead()) e.preventDefault(); return; }
       if (meta && k === 'k') { e.preventDefault(); focusAssistant(); return; }
+      if (meta && k === 'l') { e.preventDefault(); if (!toggleLink()) st.notify(tx('Sélectionne un plan ou un clip vidéo avec du son')); return; }
       if (meta && k === 'e') { e.preventDefault(); st.setUi({ workspace: 'export' }); return; }
       if (meta) return;
       const fps = p.format.fps;
       const pl = getPlayer();
       const srcActive = st.upperTab === 'source' && !!st.sourceId && st.workspace === 'edit';
-      if (e.key === ' ') { e.preventDefault(); if (srcActive && document.activeElement?.closest('.src-mon')) sourceCtl.toggle?.(); else pl?.toggle(); }
+      if (e.key === ' ') { e.preventDefault(); shuttle = 0; if (srcActive && document.activeElement?.closest('.src-mon')) sourceCtl.toggle?.(); else pl?.toggle(); }
       else if (k === 'k') { shuttle = 0; pl?.pause(); }
-      else if (k === 'l') { shuttle = Math.min(4, Math.max(1, shuttle * 2 || 1)); pl?.play(); window.dispatchEvent(new CustomEvent('cadre-rate', { detail: shuttle })); }
-      else if (k === 'j') { pl?.pause(); st.seek(getFrame() - fps); }
+      // J / K / L: play backward / pause / forward; pressing repeatedly speeds up (×2, ×4)
+      else if (k === 'l') { shuttle = Math.min(4, Math.max(1, shuttle * 2 || 1)); window.dispatchEvent(new CustomEvent('cadre-rate', { detail: shuttle })); pl?.play(); }
+      else if (k === 'j') { shuttle = shuttle > 0 ? -1 : Math.max(-4, shuttle * 2 || -1); window.dispatchEvent(new CustomEvent('cadre-rate', { detail: shuttle })); pl?.play(); }
+      else if (k === 'q') { if (!trimToPlayhead('start')) st.notify(tx('Rien à rogner sous la tête de lecture')); }
+      else if (k === 'w') { if (!trimToPlayhead('end')) st.notify(tx('Rien à rogner sous la tête de lecture')); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); st.seek(getFrame() - (e.shiftKey ? fps : 1)); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); st.seek(getFrame() + (e.shiftKey ? fps : 1)); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); jumpEdit(-1); }
       else if (e.key === 'ArrowDown') { e.preventDefault(); jumpEdit(1); }
       else if (e.key === 'Home') st.seek(0);
-      else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelection(); }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelection(e.shiftKey || e.altKey); }
       else if (k === 'i' && srcActive) sourceCtl.markIn?.();
       else if (k === 'o' && srcActive) sourceCtl.markOut?.();
       else if (e.key === ',' && srcActive) sourceCtl.insert?.();

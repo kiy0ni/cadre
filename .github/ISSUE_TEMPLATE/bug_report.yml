@@ -1,0 +1,36 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a project with …
+        2. Click …
+  - type: input
+    id: version
+    attributes:
+      label: Cadre version
+      description: Settings › About
+  - type: dropdown
+    id: os
+    attributes:
+      label: System
+      options: [macOS (Apple Silicon), macOS (Intel), Windows 10/11]
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Relevant lines from ~/Library/Logs/Cadre/cadre.log (macOS) — remove anything private.
+      render: text

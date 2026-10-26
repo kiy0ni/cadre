@@ -1,14 +1,14 @@
 {
  "id": "cinematique",
- "name": "Cinématique / aftermovie",
- "description": "Montage d’images sur la musique : transitions, étalonnage film, peu de parole.",
+ "name": "Cinematic / aftermovie",
+ "description": "Footage cut to music: transitions, film grade, little speech.",
  "format": {
   "width": 1920,
   "height": 1080,
   "fps": 30
  },
- "structure": "ouverture lente → montée → climax → fin",
- "rules": "# Cinématique\n- La musique mène : couper sur les temps forts, plans de 1 à 4 s, plus longs dans les passages calmes.\n- Pas de sous-titres sauf paroles essentielles ; pas de bruitages comiques.\n- Étalonnage cohérent sur tous les plans (filtre « film »), transitions fondu / flou entre les parties.\n- Titre sobre au début, fin en fondu au noir.",
+ "structure": "slow opening → build-up → climax → ending",
+ "rules": "# Cinematic\n- The music leads: cut on the strong beats, 1 to 4 s shots, longer in calm passages.\n- No subtitles except for essential speech; no comedic sound effects.\n- Consistent grade across all shots (\"film\" filter), fade / blur transitions between sections.\n- Understated title at the start, end with a fade to black.",
  "style": {
   "captions": {
    "font": "Inter",
@@ -68,7 +68,7 @@
  "speakers": [],
  "defaultSpeaker": null,
  "whisper": {
-  "language": "fr",
+  "language": "",
   "prompt": ""
  }
 }

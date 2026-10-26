@@ -1,4 +1,4 @@
-"""API de Cadre (moteur local). Lancé par l'appli de bureau, ou : uv run python -m cadre_engine.run"""
+"""Cadre API (local engine). Started by the desktop app, or: uv run python -m cadre_engine.run"""
 import os, json, time, tempfile, threading
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -10,7 +10,7 @@ from .ai import agent
 app = FastAPI(title=config.APP_NAME)
 
 
-# ------------------------------------------------------------------ accès à distance : mot de passe (voir auth.py)
+# ------------------------------------------------------------------ remote access: password (see auth.py)
 @app.middleware('http')
 async def guard(request: Request, call_next):
     from . import auth
@@ -34,12 +34,12 @@ def auth_status(request: Request):
 async def auth_login(request: Request):
     from . import auth
     ip = auth.client_ip(request)
-    if auth.throttled(ip): raise HTTPException(429, 'trop d’essais : réessaie dans 10 minutes')
+    if auth.throttled(ip): raise HTTPException(429, 'too many attempts: try again in 10 minutes')
     b = await request.json()
-    if not auth.configured(): raise HTTPException(403, 'aucun mot de passe défini sur le Mac (Réglages › Accès à distance)')
+    if not auth.configured(): raise HTTPException(403, 'no password set on the Mac (Settings › Remote access)')
     if not auth.check_password(b.get('password', '')):
         auth.failed(ip)
-        raise HTTPException(401, 'mot de passe incorrect')
+        raise HTTPException(401, 'wrong password')
     tok = auth.new_session(request.headers.get('user-agent', ''))
     secure = request.headers.get('x-forwarded-proto', request.url.scheme) == 'https'
     resp = JSONResponse({'ok': True})
@@ -58,25 +58,25 @@ def auth_logout(request: Request):
 
 @app.post('/api/auth/password')
 async def auth_password(request: Request):
-    """définir / changer le mot de passe : depuis le Mac, ou depuis une session à distance avec l'ancien mot de passe"""
+    """set / change the password: from the Mac, or from a remote session with the current password"""
     from . import auth
     b = await request.json()
     if not auth.is_local(request):
         if not auth.valid(request.cookies.get(auth.COOKIE)) or not auth.check_password(b.get('current', '')):
-            raise HTTPException(403, 'mot de passe actuel incorrect')
+            raise HTTPException(403, 'current password is wrong')
     try: auth.set_password(b.get('password', ''))
     except ValueError as e: raise HTTPException(400, str(e))
     return {'ok': True}
 seeds.seed()
 library.warm()
-_plock = threading.RLock()          # modifications du projet faites par le serveur (statuts des sources…)
+_plock = threading.RLock()          # project changes made by the server (source statuses…)
 
 SERVER_OWNED = ('status', 'proxy', 'stems', 'duration', 'width', 'height', 'fps', 'hasAudio', 'kind', 'path', 'url')
 
 
 def _project(pid):
     try: return store.get_project(pid)
-    except (KeyError, ValueError): raise HTTPException(404, 'projet introuvable')
+    except (KeyError, ValueError): raise HTTPException(404, 'project not found')
 
 
 def patch_source(pid, sid, **fields):
@@ -90,7 +90,7 @@ def patch_source(pid, sid, **fields):
         return p
 
 
-# ------------------------------------------------------------------ général
+# ------------------------------------------------------------------ general
 @app.get('/api/health')
 def health():
     return {'ok': True}
@@ -104,8 +104,8 @@ def bootstrap():
 
 @app.get('/api/library')
 def get_library():
-    """la banque se construit en tâche de fond (lecture de la banque iCloud) : tant qu'elle n'est pas prête,
-    on répond « loading » au lieu de bloquer l'interface."""
+    """the library is built in the background (reading the iCloud library): until it is ready,
+    we answer "loading" instead of blocking the UI."""
     if library.ready() is None:
         library.warm()
         return {'loading': True, 'sfx': {}, 'music': [], 'vfx': [], 'sections': {}}
@@ -116,16 +116,16 @@ def get_library():
 
 def _checked(p):
     if not media.readable(p):
-        raise HTTPException(503, 'dossier iCloud pas encore autorisé')
+        raise HTTPException(503, 'iCloud folder not authorized yet')
     if not os.path.isfile(p) or not media.allowed(p):
-        raise HTTPException(404, 'fichier introuvable')
+        raise HTTPException(404, 'file not found')
     return p
 
 
 @app.get('/api/thumb')
 def get_thumb(p: str, t: float = 0.0, w: int = 320):
     out = previews.thumb(_checked(p), t, min(960, max(80, w)))
-    if not out: raise HTTPException(404, 'vignette impossible')
+    if not out: raise HTTPException(404, 'thumbnail failed')
     return FileResponse(out, headers={'Cache-Control': 'public, max-age=86400'})
 
 
@@ -141,7 +141,7 @@ def get_peaks(p: str):
 
 @app.get('/api/system')
 def system():
-    """état de l'installation : ce qui marche sur cette machine"""
+    """installation status: what works on this machine"""
     import platform, shutil, sys
     s = store.settings()
     return {'app': config.APP_NAME, 'version': config.VERSION, 'platform': sys.platform, 'arch': platform.machine(),
@@ -163,7 +163,7 @@ def _ffmpeg_ok():
 async def add_library(req: Request):
     b = await req.json()
     path = os.path.abspath(os.path.expanduser(b.get('path', '')))
-    if not os.path.isdir(path): raise HTTPException(400, 'dossier introuvable')
+    if not os.path.isdir(path): raise HTTPException(400, 'folder not found')
     s = store.settings()
     libs = [l for l in s.get('libraries', []) if l['path'] != path]
     libs.append({'id': store.new_id('lib'), 'name': b.get('name') or os.path.basename(path), 'path': path})
@@ -190,11 +190,11 @@ def rescan_library():
 
 @app.post('/api/system/voices')
 def install_voices():
-    """installe les modules voix (torch, speechbrain, demucs) dans l'environnement du moteur"""
+    """installs the voice modules (torch, speechbrain, demucs) into the engine's environment (uv extra 'voix')"""
     import subprocess, shutil, sys
     uv = os.environ.get('CADRE_UV') or shutil.which('uv')
     def fn(job):
-        job.step(0.05, 'téléchargement des modules voix (~2 Go)…')
+        job.step(0.05, 'downloading voice modules (~2 GB)…')
         if uv:
             cmd = [uv, 'sync', '--frozen', '--extra', 'voix', '--project', config.ENGINE]
         else:
@@ -202,9 +202,9 @@ def install_voices():
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=dict(os.environ))
         job.proc = proc
         for line in proc.stdout: job.step(None, line.strip()[:100])
-        if proc.wait() != 0: raise RuntimeError('installation impossible')
+        if proc.wait() != 0: raise RuntimeError('installation failed')
         return {'ok': True}
-    return {'job': jobs.submit('setup', fn, None, 'modules voix', heavy=False).id}
+    return {'job': jobs.submit('setup', fn, None, 'voice modules', heavy=False).id}
 
 
 @app.get('/api/settings')
@@ -227,13 +227,13 @@ async def put_settings(req: Request):
 @app.get('/api/file')
 def get_file(p: str):
     if not media.readable(p):
-        raise HTTPException(503, 'dossier iCloud pas encore autorisé')
+        raise HTTPException(503, 'iCloud folder not authorized yet')
     if not os.path.isfile(p) or not media.allowed(p):
-        raise HTTPException(404, 'fichier introuvable')
+        raise HTTPException(404, 'file not found')
     return FileResponse(p, headers={'Cache-Control': 'public, max-age=3600', 'Access-Control-Allow-Origin': '*'})
 
 
-# ------------------------------------------------------------------ projets
+# ------------------------------------------------------------------ projects
 @app.get('/api/projects')
 def projects():
     return store.list_projects()
@@ -255,7 +255,7 @@ def get_project(pid: str):
 
 @app.put('/api/projects/{pid}')
 async def put_project(pid: str, req: Request):
-    """l'éditeur envoie tout le projet ; les infos tenues par le serveur (statuts d'analyse, proxy, chat) sont gardées."""
+    """the editor sends the whole project; server-owned info (analysis statuses, proxy, chat) is kept."""
     body = await req.json()
     with _plock:
         cur = _project(pid)
@@ -291,21 +291,22 @@ def get_words(pid: str, sid: str):
 
 @app.put('/api/projects/{pid}/words/{sid}')
 async def put_words(pid: str, sid: str, req: Request):
-    """corrections faites à la main dans la transcription (mot, qui parle)."""
+    """manual corrections to the transcript (word, who is speaking)."""
     words = await req.json()
     store.write_json(store.words_path(pid, sid), words)
     return {'ok': True}
 
 
 def _after_add(pid, sid):
-    """à l'import : vidéo légère pour l'aperçu, puis transcription (l'IA et les sous-titres en ont besoin)."""
+    """on import: lightweight preview video, then transcription (the AI and the subtitles need it)."""
     p = store.get_project(pid)
     s = store.source(p, sid)
     imp = store.settings().get('import') or {}
-    if s['kind'] == 'video' and imp.get('proxy', True):
-        start_job(pid, sid, 'proxy')
+    # transcription first: the AI needs it to edit; the lightweight copy (smooth preview) afterwards
     if s['kind'] in ('video', 'audio') and imp.get('transcribe', True) and s.get('status', {}).get('transcript') in (None, 'none'):
         start_job(pid, sid, 'transcribe')
+    if s['kind'] == 'video' and imp.get('proxy', True):
+        start_job(pid, sid, 'proxy')
 
 
 @app.post('/api/projects/{pid}/sources')
@@ -313,7 +314,7 @@ async def add_source(pid: str, req: Request):
     b = await req.json()
     if b.get('url'):
         def fn(job):
-            job.step(0, 'téléchargement…')
+            job.step(0, 'downloading…')
             path = media.download(b['url'], f'{store.pdir(pid)}/media', job)
             with _plock:
                 p = store.get_project(pid)
@@ -321,7 +322,7 @@ async def add_source(pid: str, req: Request):
                 store.save_project(p)
             _after_add(pid, s['id'])
             return {'source': s['id']}
-        job = jobs.submit('download', fn, pid, f"téléchargement {b['url'][:60]}", heavy=False)
+        job = jobs.submit('download', fn, pid, f"download {b['url'][:60]}", heavy=False)
         return {'job': job.id}
     paths_in = b.get('paths') or [b['path']]
     added, errors = [], []
@@ -329,10 +330,10 @@ async def add_source(pid: str, req: Request):
         p = _project(pid)
         for path in paths_in:
             try: added.append(media.add_source(p, path, b.get('name') if len(paths_in) == 1 else None))
-            except (FileNotFoundError, ValueError) as e: errors.append(f'{os.path.basename(path)} : {e}')
+            except (FileNotFoundError, ValueError) as e: errors.append(f'{os.path.basename(path)}: {e}')
         store.save_project(p)
     for s in added: _after_add(pid, s['id'])
-    if not added: raise HTTPException(400, ' ; '.join(errors) or 'rien à ajouter')
+    if not added: raise HTTPException(400, '; '.join(errors) or 'nothing to add')
     return {'source': added[0], 'sources': added, 'errors': errors}
 
 
@@ -359,10 +360,10 @@ def delete_source(pid: str, sid: str):
 
 
 ACTIONS = {
-    'proxy': ('aperçu léger', 'proxy'),
+    'proxy': ('preview proxy', 'proxy'),
     'transcribe': ('transcription', 'transcript'),
-    'speakers': ('qui parle', 'speakers'),
-    'stems': ('voix / fond séparés', 'stems'),
+    'speakers': ('who is speaking', 'speakers'),
+    'stems': ('voice / background split', 'stems'),
 }
 
 
@@ -410,7 +411,7 @@ def get_moments(pid: str, sid: str):
 
 @app.post('/api/projects/{pid}/captions')
 async def auto_captions(pid: str, req: Request):
-    """sous-titres auto pour un plan (bouton « regénérer » de l'inspecteur)."""
+    """auto subtitles for a shot (the inspector's "regenerate" button)."""
     b = await req.json()
     p = _project(pid)
     pack = store.get_pack(p['packId']) or {}
@@ -419,17 +420,50 @@ async def auto_captions(pid: str, req: Request):
                                  p.get('defaultSpeaker'))
 
 
-# ------------------------------------------------------------------ IA
+# ------------------------------------------------------------------ AI
+# fallback titles only: the web UI maps job kinds to its own (translated) titles
+PREP = {'download': 'Download', 'transcribe': 'Transcription', 'speakers': 'Who is speaking', 'proxy': 'Lightweight copy (preview)'}
+
+
+def _prep_stages(pid, since):
+    """preparation of the project's media, step by step (shown live in the assistant)"""
+    out = []
+    for j in sorted(jobs.JOBS.values(), key=lambda j: j.created):
+        if j.project != pid or j.kind not in PREP or j.created < since - 120: continue
+        out.append({'id': j.id, 'kind': j.kind, 'title': PREP[j.kind], 'name': j.label.split(' — ', 1)[-1].removeprefix('download '),
+                    'status': j.status, 'progress': round(j.progress, 3), 'detail': (j.error or j.message or '')[:160]})
+    return out
+
+
+def _wait_analysis(job, pid, limit=3 * 3600):
+    """waits for the project's downloads, transcriptions and speaker recognition to finish (the AI needs them to edit);
+    the lightweight copy is not waited for (preview only)"""
+    t0, last = time.time(), None
+    while time.time() - t0 < limit:
+        st = _prep_stages(pid, job.created)
+        if st != last: job.emit('stages', stages=st)
+        last = st
+        busy = [s for s in st if s['kind'] != 'proxy' and s['status'] in ('queued', 'running')]
+        if not busy: return
+        b = busy[0]
+        job.step(None, (b['detail'] or f"{b['title']} in progress") if b['status'] == 'running' else f"{b['title']}: queued")
+        time.sleep(1)
+
+
 @app.post('/api/projects/{pid}/ai')
 async def ai(pid: str, req: Request):
     b = await req.json()
     _project(pid)
-    if not (b.get('prompt') or '').strip(): raise HTTPException(400, 'demande vide')
+    if not (b.get('prompt') or '').strip(): raise HTTPException(400, 'empty request')
     running = [j for j in jobs.JOBS.values() if j.project == pid and j.kind == 'ai' and j.status in ('queued', 'running')]
-    if running: raise HTTPException(409, "l'IA travaille déjà sur ce projet")
+    if running: raise HTTPException(409, "the AI is already working on this project")
     mode = b.get('mode') if b.get('mode') in ('auto', 'ask', 'plan') else 'auto'
-    job = jobs.submit('ai', lambda job: agent.run(job, pid, b['prompt'].strip(), b.get('context'), b.get('conversation'), mode), pid,
-                      'IA : ' + b['prompt'][:60], heavy=False, meta={'conversation': b.get('conversation'), 'mode': mode})
+
+    def fn(job):
+        if b.get('wait'): _wait_analysis(job, pid)       # new project edited by the AI: downloads / transcriptions first
+        return agent.run(job, pid, b['prompt'].strip(), b.get('context'), b.get('conversation'), mode)
+    job = jobs.submit('ai', fn, pid,
+                      'AI: ' + b['prompt'][:60], heavy=False, meta={'conversation': b.get('conversation'), 'mode': mode})
     return {'job': job.id}
 
 
@@ -437,9 +471,9 @@ async def ai(pid: str, req: Request):
 async def approve(jid: str, req: Request):
     b = await req.json()
     j = jobs.JOBS.get(jid)
-    if not j or not hasattr(j, 'approve'): raise HTTPException(404, 'tâche introuvable')
-    if b.get('decision') not in ('allow', 'deny', 'always'): raise HTTPException(400, 'décision : allow, deny ou always')
-    if not j.approve(b.get('id'), b['decision']): raise HTTPException(404, 'autorisation introuvable')
+    if not j or not hasattr(j, 'approve'): raise HTTPException(404, 'job not found')
+    if b.get('decision') not in ('allow', 'deny', 'always'): raise HTTPException(400, 'decision: allow, deny or always')
+    if not j.approve(b.get('id'), b['decision']): raise HTTPException(404, 'permission request not found')
     return {'ok': True}
 
 
@@ -491,16 +525,24 @@ def mcp_get(jid: str, secret: str):
     return Response(status_code=405)
 
 
-# ------------------------------------------------------------------ rendu
+# ------------------------------------------------------------------ render
 @app.post('/api/projects/{pid}/render')
 async def render(pid: str, req: Request):
     b = await req.json() if (await req.body()) else {}
     p = _project(pid)
-    if not p['timeline']: raise HTTPException(400, 'timeline vide')
+    if not p['timeline']: raise HTTPException(400, 'empty timeline')
     preset = b.get('preset') or ('draft' if b.get('quality') == 'draft' else 'web')
     job = jobs.submit('render', lambda job: R.render(store.get_project(pid), job, preset), pid,
-                      f"rendu — {p.get('title') or p['name']}")
+                      f"render — {p.get('title') or p['name']}")
     return {'job': job.id}
+
+
+@app.post('/api/projects/{pid}/export-xml')
+def export_xml(pid: str):
+    from . import interchange
+    from .media import file_url
+    path = interchange.export_xml(_project(pid))
+    return {'path': path, 'url': file_url(path)}
 
 
 @app.get('/api/projects/{pid}/renders')
@@ -513,7 +555,7 @@ def render_props(pid: str):
     return R.props_for(_project(pid))
 
 
-# ------------------------------------------------------------------ tâches
+# ------------------------------------------------------------------ jobs
 @app.get('/api/jobs')
 def list_jobs(project: str | None = None):
     return jobs.active(project)
@@ -548,7 +590,7 @@ async def create_pack(req: Request):
     return store.save_pack(pk)
 
 
-# ------------------------------------------------------------------ stockage (caches recalculables)
+# ------------------------------------------------------------------ storage (rebuildable caches)
 CACHE_KINDS = {'previews': 'previews', 'features': 'features', 'stems': 'stems', 'refs': 'refs', 'ai': 'claude-cli'}
 
 
@@ -581,7 +623,7 @@ async def storage_clear(req: Request):
     return {'cleared': done, **storage()}
 
 
-# ------------------------------------------------------------------ mes effets (préréglages d'image enregistrés)
+# ------------------------------------------------------------------ my effects (saved image presets)
 PRESETS_F = os.path.join(config.DATA, 'effect-presets.json')
 
 
@@ -593,7 +635,7 @@ def list_presets():
 @app.post('/api/presets')
 async def add_preset(req: Request):
     b = await req.json()
-    if not (b.get('name') or '').strip(): raise HTTPException(400, 'donne un nom à l’effet')
+    if not (b.get('name') or '').strip(): raise HTTPException(400, 'give the effect a name')
     pr = {'id': store.new_id('fx'), 'name': b['name'].strip()[:60], 'look': b.get('look') or {}, 'createdAt': time.time()}
     items = [x for x in store.read_json(PRESETS_F, []) if x['name'] != pr['name']] + [pr]
     store.write_json(PRESETS_F, items)
@@ -609,10 +651,10 @@ def del_preset(fid: str):
 @app.post('/api/packs/generate')
 async def generate_pack(req: Request):
     b = await req.json()
-    if not (b.get('description') or '').strip(): raise HTTPException(400, 'décris le style voulu')
+    if not (b.get('description') or '').strip(): raise HTTPException(400, 'describe the style you want')
     from .ai import stylegen
     job = jobs.submit('style', lambda job: stylegen.generate(job, b['description'].strip(), (b.get('reference') or '').strip() or None,
-                                                          (b.get('name') or '').strip() or None), None, 'création du style', heavy=False)
+                                                          (b.get('name') or '').strip() or None), None, 'creating the style', heavy=False)
     return {'job': job.id}
 
 
@@ -628,7 +670,7 @@ def del_pack(pk_id: str):
     return {'ok': True}
 
 
-# ------------------------------------------------------------------ personnes
+# ------------------------------------------------------------------ people
 @app.get('/api/speakers')
 def speakers():
     return store.list_speakers()
@@ -638,9 +680,9 @@ def speakers():
 async def create_speaker(req: Request):
     b = await req.json()
     import re as _re
-    sid = _re.sub(r'[^a-z0-9_]+', '_', (b.get('name') or 'personne').lower()).strip('_')[:20] or None
+    sid = _re.sub(r'[^a-z0-9_]+', '_', (b.get('name') or 'person').lower()).strip('_')[:20] or None
     if sid and store.get_speaker(sid): sid = None
-    return store.save_speaker({'id': sid, 'name': b.get('name', 'Personne'), 'color': b.get('color', '#D5C2FF'),
+    return store.save_speaker({'id': sid, 'name': b.get('name', 'Person'), 'color': b.get('color', '#D5C2FF'),
                                'aliases': b.get('aliases', []), 'description': b.get('description', ''),
                                'preferences': b.get('preferences', ''), 'samples': []})
 
@@ -664,9 +706,9 @@ async def enroll(sid: str, req: Request):
     b = await req.json()
     p = _project(b['project'])
     def fn(job):
-        job.step(0.1, 'empreinte vocale…')
+        job.step(0.1, 'voice embedding…')
         return analyse.enroll_from_source(sid, p, b['source'], float(b['t0']), float(b['t1']))
-    return {'job': jobs.submit('enroll', fn, p['id'], f'voix de {sid}').id}
+    return {'job': jobs.submit('enroll', fn, p['id'], f'voice of {sid}').id}
 
 
 @app.post('/api/speakers/{sid}/record')
@@ -674,10 +716,10 @@ def record(sid: str, file: UploadFile = File(...)):
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename or '.webm')[1] or '.webm')
     tmp.write(file.file.read()); tmp.close()
     def fn(job):
-        job.step(0.1, 'empreinte vocale…')
+        job.step(0.1, 'voice embedding…')
         try: return analyse.enroll_from_file(sid, tmp.name)
         finally: os.remove(tmp.name)
-    return {'job': jobs.submit('enroll', fn, None, f'voix de {sid}').id}
+    return {'job': jobs.submit('enroll', fn, None, f'voice of {sid}').id}
 
 
 @app.post('/api/speakers/{sid}/reset-voice')
@@ -689,7 +731,7 @@ def reset_voice(sid: str):
     return store.save_speaker(sp)
 
 
-# ------------------------------------------------------------------ interface (build Vite)
+# ------------------------------------------------------------------ UI (Vite build)
 if os.path.isdir(config.WEB_DIST):
     app.mount('/assets', StaticFiles(directory=f'{config.WEB_DIST}/assets'), name='assets')
 
@@ -697,5 +739,5 @@ if os.path.isdir(config.WEB_DIST):
     def spa(full: str):
         f = f'{config.WEB_DIST}/{full}'
         if full and os.path.isfile(f): return FileResponse(f)
-        # jamais en cache : après une mise à jour, le navigateur doit charger la nouvelle interface
+        # never cached: after an update, the browser must load the new UI
         return FileResponse(f'{config.WEB_DIST}/index.html', headers={'Cache-Control': 'no-cache, no-store, must-revalidate'})

@@ -17,7 +17,7 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
     try {
       const j = await res.json();
       msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail ?? j);
-    } catch { /* corps vide */ }
+    } catch { /* empty body */ }
     throw new Error(msg);
   }
   return res.json() as Promise<T>;
@@ -74,13 +74,14 @@ export const api = {
   sourceAction: (id: string, src: string, action: 'proxy' | 'transcribe' | 'speakers' | 'stems') => req<{ job: string }>('POST', `/api/projects/${id}/sources/${src}/${action}`),
   moments: (id: string, src: string) => req<{ t: number; pic: number; score: number; extrait: string }[]>('GET', `/api/projects/${id}/moments/${src}`),
   autoCaptions: (id: string, b: { src: string; in: number; out: number }) => req<Caption[]>('POST', `/api/projects/${id}/captions`, b),
-  ai: (id: string, b: { prompt: string; context?: Record<string, unknown>; conversation?: string | null; mode?: string }) => req<{ job: string }>('POST', `/api/projects/${id}/ai`, b),
+  ai: (id: string, b: { prompt: string; context?: Record<string, unknown>; conversation?: string | null; mode?: string; wait?: boolean }) => req<{ job: string }>('POST', `/api/projects/${id}/ai`, b),
   approve: (job: string, id: string, decision: 'allow' | 'deny' | 'always') => req('POST', `/api/jobs/${job}/approve`, { id, decision }),
   rewind: (pid: string, cid: string, messageId: string) => req<{ project: Project }>('POST', `/api/projects/${pid}/conversations/${cid}/rewind`, { messageId }),
   renameConv: (pid: string, cid: string, title: string) => req('PATCH', `/api/projects/${pid}/conversations/${cid}`, { title }),
   deleteConv: (pid: string, cid: string) => req('DELETE', `/api/projects/${pid}/conversations/${cid}`),
   render: (id: string, preset: string) => req<{ job: string }>('POST', `/api/projects/${id}/render`, { preset }),
   renders: (id: string) => req<Render[]>('GET', `/api/projects/${id}/renders`),
+  exportXml: (id: string) => req<{ path: string; url: string }>('POST', `/api/projects/${id}/export-xml`),
 
   jobs: (project?: string) => req<JobInfo[]>('GET', `/api/jobs${project ? `?project=${project}` : ''}`),
   job: (id: string, since = 0) => req<JobInfo>('GET', `/api/jobs/${id}?since=${since}`),
@@ -109,14 +110,14 @@ export const api = {
   resetVoice: (id: string) => req<Speaker>('POST', `/api/speakers/${id}/reset-voice`),
 };
 
-/** attend la fin d'une tâche en relayant ses évènements */
+/** waits for a job to finish, relaying its events */
 export async function followJob(id: string, onEvent?: (e: NonNullable<JobInfo['events']>[number], j: JobInfo) => void, onTick?: (j: JobInfo) => void): Promise<JobInfo> {
   let since = 0;
   let fails = 0;
   for (;;) {
     let j: JobInfo;
     try { j = await api.job(id, since); fails = 0; } catch (e) {
-      // coupure passagère (moteur occupé, réseau) : on réessaie un moment avant d'abandonner
+      // transient failure (engine busy, network): keep retrying for a while before giving up
       if (++fails > 15) throw e;
       await new Promise((r) => setTimeout(r, 1000));
       continue;

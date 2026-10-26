@@ -1,4 +1,4 @@
-"""Chemins et constantes de Cadre. Fonctionne sur macOS, Windows et Linux."""
+"""Cadre paths and constants. Works on macOS, Windows and Linux."""
 import os
 import sys
 
@@ -18,7 +18,7 @@ def _data_root():
 
 
 ENGINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # engine/
-ROOT = os.path.dirname(ENGINE)                                            # dépôt (ou ressources de l'appli)
+ROOT = os.path.dirname(ENGINE)                                            # repo (or the app's resources)
 DATA = _data_root()
 PROJECTS = os.path.join(DATA, 'projects')
 STYLES = os.path.join(DATA, 'styles')
@@ -35,5 +35,5 @@ BUILTIN_STYLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'style
 PORT = int(os.environ.get('CADRE_PORT', '8765'))
 BASE_URL = f'http://127.0.0.1:{PORT}'
 
-# dossiers protégés par macOS (Documents / Bureau synchronisés avec iCloud) : lus seulement une fois l'accès accordé
+# folders protected by macOS (Documents / Desktop synced with iCloud): read only once access is granted
 PROTECTED = ['/Library/Mobile Documents/'] if sys.platform == 'darwin' else []

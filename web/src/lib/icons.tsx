@@ -1,4 +1,4 @@
-// Icônes au trait 24 px (dessinées ici : aucune dépendance).
+// 24 px line icons (drawn here: no dependency).
 import type { SVGProps } from 'react';
 
 const P: Record<string, string> = {
@@ -100,7 +100,7 @@ export function Icon({ name, size = 16, ...rest }: { name: string; size?: number
   );
 }
 
-/** marque de l'appli : quatre coins de cadre */
+/** app logo: four frame corners */
 export function Logo({ size = 18 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden>

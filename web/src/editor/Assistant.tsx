@@ -1,12 +1,12 @@
-// Assistant de montage (façon Claude Code dans VS Code) : conversations, modes Auto / Demander / Plan, étapes dépliables,
-// autorisations, points de retour, commandes « / » et mentions « @ ». Il voit le projet, la sélection et la tête de lecture.
+// Editing assistant (in the style of Claude Code in VS Code): conversations, Auto / Ask / Plan modes, expandable steps,
+// permissions, rewind points, "/" commands and "@" mentions. It sees the project, the selection and the playhead.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { ago, fmt, nf } from '../lib/format';
 import { Icon } from '../lib/icons';
 import { Markdown } from '../lib/md';
-import { getFrame, useStore } from '../lib/store';
-import type { AiMode, Block, ConvMsg, Conversation } from '../types';
+import { getFrame, useStore, type LiveTurn } from '../lib/store';
+import type { AiMode, Block, ConvMsg, Conversation, PrepStage, Todo } from '../types';
 import { useComp } from './comp';
 import { tx } from '../lib/i18n';
 
@@ -22,7 +22,7 @@ export const COMMANDS: { cmd: string; label: string; prompt: string; mode?: AiMo
   { cmd: '/rythme', label: tx('Resserrer le rythme'), prompt: tx('Resserre le rythme : coupe les temps morts et les répétitions, garde le sens. Dis-moi ce que tu as retiré.') },
   { cmd: '/raccourcir', label: tx('Raccourcir'), prompt: tx('Raccourcis la vidéo d’environ 20 % en gardant les meilleurs passages et une histoire claire.') },
   { cmd: '/soustitres', label: tx('Vérifier les sous-titres'), prompt: tx('Relis tous les sous-titres : mots faux (compare avec la transcription), découpage, qui parle. Corrige ce qui doit l’être.') },
-  { cmd: '/musique', label: tx('Choisir la musique'), prompt: "Choisis la musique de fond selon l'ambiance de chaque partie, au bon volume sous la voix." },
+  { cmd: '/musique', label: tx('Choisir la musique'), prompt: tx('Choisis la musique de fond selon l’ambiance de chaque partie, au bon volume sous la voix.') },
   { cmd: '/bruitages', label: tx('Ajouter des bruitages'), prompt: tx('Ajoute des bruitages synchronisés là où ils renforcent l’action, sans en mettre trop.') },
   { cmd: '/couleur', label: tx('Étalonner'), prompt: tx('Étalonne la vidéo avec un look cohérent, adapté à l’ambiance, sans excès. Regarde les images avant.') },
   { cmd: '/titres', label: tx('Ajouter des titres'), prompt: tx('Ajoute des titres à l’écran utiles (parties, noms, infos clés) dans le style du projet.') },
@@ -32,7 +32,6 @@ export const COMMANDS: { cmd: string; label: string; prompt: string; mode?: AiMo
   { cmd: '/titre', label: tx('Proposer des titres de vidéo'), prompt: tx('Propose 5 titres et une description pour cette vidéo, basés sur son contenu réel. Ne modifie pas le montage.'), mode: 'plan' },
 ];
 
-const VERBS = [tx('Analyse'), tx('Découpe'), tx('Cadrage'), tx('Mixage'), tx('Étalonnage'), tx('Dérushage'), tx('Synchronisation'), tx('Montage'), tx('Vérification')];
 
 export function Assistant({ onClose }: { onClose?: () => void }) {
   const { props } = useComp();
@@ -112,8 +111,10 @@ export function Assistant({ onClose }: { onClose?: () => void }) {
           <>
             {live.user && !msgs.find((m) => m.id === live.user!.id) ? <Message m={live.user} last={false} /> : null}
             <div className="cc-msg">
+              {live.stages?.length ? <PrepCard stages={live.stages} /> : null}
+              {live.todos?.length ? <TodoList items={live.todos} /> : null}
               <Blocks blocks={live.blocks} live />
-              <Spinner startedAt={live.startedAt} usage={live.usage} log={live.logs[live.logs.length - 1]} />
+              <Spinner live={live} />
             </div>
           </>
         ) : null}
@@ -154,7 +155,7 @@ function Header({ conv, onConvs, onNew, onClose, disabled }: { conv: Conversatio
   );
 }
 
-// ---------- saisie avec commandes « / » et mentions « @ »
+// ---------- input with "/" commands and "@" mentions
 function Composer({ input, text, setText, onSend, onCycle }: {
   input: React.RefObject<HTMLTextAreaElement | null>; text: string; setText: (s: string) => void; onSend: () => void; onCycle: () => void;
 }) {
@@ -175,11 +176,11 @@ function Composer({ input, text, setText, onSend, onCycle }: {
         ...project.timeline.map((it, i) => ({ key: it.id, label: `${it.type === 'clip' ? tx('Plan') : it.type === 'card' ? tx('Carton') : it.type === 'freeze' ? tx('Arrêt') : tx('Média')} ${i + 1}`,
           sub: it.type === 'clip' ? (it.label || fmt(it.in, 0)) : it.type === 'card' ? it.text.split('\n')[0] : '' })),
         ...project.sources.map((s) => ({ key: s.id, label: s.name, sub: tx('média') })),
-        ...speakers.filter((s) => project.speakers.includes(s.id)).map((s) => ({ key: s.id, label: s.name, sub: 'personne' })),
+        ...speakers.filter((s) => project.speakers.includes(s.id)).map((s) => ({ key: s.id, label: s.name, sub: tx('personne') })),
         ...(project.tracks || []).flatMap((t) => t.clips.map((c) => ({ key: c.id, label: c.type === 'text' ? `« ${c.text.slice(0, 20)} »` : c.name || 'clip', sub: t.name }))),
       ];
       return items.filter((x) => !q || `${x.label} ${x.sub}`.toLowerCase().includes(q)).slice(0, 8)
-        .map((x) => ({ key: x.key, label: x.label, sub: x.sub, insert: `@[${x.label}${x.sub && x.sub !== tx('média') && x.sub !== 'personne' ? ` « ${x.sub.slice(0, 24)} »` : ''}](${x.key}) ` }));
+        .map((x) => ({ key: x.key, label: x.label, sub: x.sub, insert: `@[${x.label}${x.sub && x.sub !== tx('média') && x.sub !== tx('personne') ? ` « ${x.sub.slice(0, 24)} »` : ''}](${x.key}) ` }));
     }
     return [];
   }, [slash, atQ, project, speakers]);
@@ -216,6 +217,29 @@ function Composer({ input, text, setText, onSend, onCycle }: {
   );
 }
 
+// ---------- what a request changed (counters before -> after)
+const SUMMARY_LABELS: Record<string, () => string> = {
+  plans: () => tx('Plans'), cartons: () => tx('Cartons'), duree: () => tx('Durée'), soustitres: () => tx('Sous-titres'), effets: () => tx('Effets'),
+  coupes: () => tx('Coupes'), sons: () => tx('Bruitages'), musique: () => tx('Musiques'), incrustations: () => tx('Incrustations'), titres: () => tx('Titres'),
+  audio: () => tx('Clips audio'), looks: () => tx('Réglages d’image'),
+};
+function ChangeSummary({ items }: { items: { k: string; a: number; b: number }[] }) {
+  const show = (k: string, v: number) => (k === 'duree' ? fmtDur(v) : String(v));
+  return (
+    <div className="cc-summary">
+      {items.map((x) => {
+        const d = x.b - x.a;
+        return (
+          <span key={x.k} className={`cc-sum ${d > 0 ? 'up' : 'down'}`} title={`${show(x.k, x.a)} → ${show(x.k, x.b)}`}>
+            {SUMMARY_LABELS[x.k]?.() || x.k} <b>{x.k === 'duree' ? show(x.k, x.b) : `${d > 0 ? '+' : '−'}${Math.abs(d)}`}</b>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+
 // ---------- messages
 function Message({ m, last, onRun }: { m: ConvMsg; last: boolean; onRun?: (mode: AiMode) => void }) {
   const rewindTo = useStore((s) => s.rewindTo);
@@ -225,7 +249,7 @@ function Message({ m, last, onRun }: { m: ConvMsg; last: boolean; onRun?: (mode:
     return (
       <div className="cc-msg cc-user">
         <div className="cc-user-box">
-          {m.mode && m.mode !== 'auto' ? <span className="cc-badge">{m.mode === 'plan' ? 'plan' : tx('demander avant')}</span> : null}
+          {m.mode && m.mode !== 'auto' ? <span className="cc-badge">{m.mode === 'plan' ? tx('plan') : tx('demander avant')}</span> : null}
           <Markdown text={m.text} />
           {m.context ? <div className="tiny dim" style={{ marginTop: 4 }}>{m.context}</div> : null}
         </div>
@@ -239,11 +263,13 @@ function Message({ m, last, onRun }: { m: ConvMsg; last: boolean; onRun?: (mode:
   const txt = m.blocks.filter((b) => b.type === 'text').map((b) => (b as { text: string }).text).join('\n');
   return (
     <div className="cc-msg">
+      {m.todos?.length ? <TodoList items={m.todos} done={m.status === 'done'} /> : null}
       <Blocks blocks={m.blocks} />
       {m.status === 'error' ? <div className="cc-error small">{m.error || tx('Erreur')}</div> : null}
       {m.status === 'cancelled' ? <div className="tiny dim">{tx('Arrêté')}</div> : null}
+      {m.summary?.length ? <ChangeSummary items={m.summary} /> : null}
       <div className="cc-foot">
-        {m.changes ? <span>{m.changes} modification{m.changes > 1 ? 's' : ''}</span> : null}
+        {m.changes ? <span>{m.changes > 1 ? tx('{0} modifications', m.changes) : tx('1 modification')}</span> : null}
         {m.durationMs ? <span>{fmt(m.durationMs / 1000, 0)}</span> : null}
         {m.usage && (m.usage.input || m.usage.output) ? <span>{nf(m.usage.input + (m.usage.cacheRead || 0))} → {nf(m.usage.output)} tokens</span> : null}
         {m.usage?.cost ? <span>{m.usage.cost.toFixed(2).replace('.', ',')} $</span> : null}
@@ -263,7 +289,7 @@ function Message({ m, last, onRun }: { m: ConvMsg; last: boolean; onRun?: (mode:
 function Blocks({ blocks, live }: { blocks: Block[]; live?: boolean }) {
   return (
     <>
-      {blocks.map((b, i) => b.type === 'text' ? <Markdown key={i} text={b.text} />
+      {blocks.map((b, i) => b.type === 'tool' && b.name === 'etapes' ? null : b.type === 'text' ? <Markdown key={i} text={b.text} />
         : b.type === 'thinking' ? <Thinking key={i} text={b.text} live={live && i === blocks.length - 1} />
         : <ToolBlock key={b.id} b={b} />)}
     </>
@@ -283,10 +309,10 @@ function Thinking({ text, live }: { text: string; live?: boolean }) {
 
 const TOOL_VERB: Record<string, string> = {
   etat_projet: tx('Lecture'), lire_transcription: tx('Lecture'), chercher_texte: tx('Recherche'), moments_forts: tx('Analyse'), bibliotheque: tx('Bibliothèque'),
-  regarder: tx('Regarde'), regarder_montage: tx('Regarde'), regler_style: 'Style',
+  regarder: tx('Regarde'), regarder_montage: tx('Regarde'), regler_style: tx('Style'),
   lire_element: tx('Lecture'), definir_titre: tx('Titre'), ajouter_plan: tx('Ajout'), ajouter_carton: tx('Ajout'), ajouter_arret_image: tx('Ajout'),
-  ajouter_media: tx('Ajout'), ajouter_effets: tx('Effets'), supprimer_effets: tx('Suppression'), ecrire_sous_titres: 'Sous-titres',
-  modifier_sous_titres: 'Sous-titres', generer_sous_titres: 'Sous-titres', modifier_element: tx('Modification'), supprimer_element: tx('Suppression'),
+  ajouter_media: tx('Ajout'), ajouter_effets: tx('Effets'), supprimer_effets: tx('Suppression'), ecrire_sous_titres: tx('Sous-titres'),
+  modifier_sous_titres: tx('Sous-titres'), generer_sous_titres: tx('Sous-titres'), modifier_element: tx('Modification'), supprimer_element: tx('Suppression'),
   deplacer_element: tx('Déplacement'), vider_timeline: tx('Suppression'), musique: tx('Musique'), noter_preference: tx('Mémoire'), ajouter_texte: tx('Titre'),
   ajouter_incrustation: tx('Incrustation'), etalonnage: tx('Couleur'), transition: tx('Transition'), regler_image: tx('Image'),
   modifier_clip_piste: tx('Modification'), supprimer_clips_piste: tx('Suppression'), mixage: tx('Mixage'), effets_image: tx('Effets'), analyser_video: tx('Analyse'), format_projet: tx('Format'), marqueurs: tx('Marqueurs'), exporter: tx('Export'),
@@ -325,16 +351,78 @@ function ToolBlock({ b }: { b: Extract<Block, { type: 'tool' }> }) {
   );
 }
 
-function Spinner({ startedAt, usage, log }: { startedAt: number; usage: { output: number } | null; log?: string }) {
+/** what the assistant is doing RIGHT NOW (never a decorative word): media preparation, running tool, step, thinking */
+function Spinner({ live }: { live: LiveTurn }) {
   const [, tick] = useState(0);
   useEffect(() => { const i = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(i); }, []);
-  const secs = Math.floor((Date.now() - startedAt) / 1000);
+  const secs = Math.floor((Date.now() - live.startedAt) / 1000);
+  const prep = live.stages?.find((s) => s.kind !== 'proxy' && (s.status === 'running' || s.status === 'queued'));
+  const tool = [...live.blocks].reverse().find((b) => b.type === 'tool' && (b.status === 'running' || b.status === 'pending')) as Extract<Block, { type: 'tool' }> | undefined;
+  const doing = live.todos?.find((t) => t.status === 'doing');
+  const last = live.blocks[live.blocks.length - 1];
+  const label = prep ? tx('Préparation des médias : {0}', prepTitle(prep).toLowerCase())
+    : tool ? (tool.status === 'pending' ? tx('En attente de ton accord') : `${TOOL_VERB[tool.name] || tool.name} : ${tool.label.replace(/^\S+\s+/, '')}`)
+    : last?.type === 'text' ? tx('Écrit sa réponse')
+    : doing ? doing.text
+    : live.blocks.length ? tx('Réfléchit à la suite') : tx('Lecture du projet');
+  const fmtS = (n: number) => (n >= 60 ? `${Math.floor(n / 60)} min ${String(n % 60).padStart(2, '0')}` : `${n} s`);
   return (
     <div className="cc-spinner">
       <span className="spin" />
-      <span>{VERBS[Math.floor(secs / 6) % VERBS.length]}…</span>
-      <span className="dim tiny">{secs} s{usage?.output ? ` · ${nf(usage.output)} tokens` : ''} · Échap pour arrêter</span>
-      {log ? <div className="tiny dim ellipsis" style={{ width: '100%' }}>{log}</div> : null}
+      <span className="ellipsis" style={{ maxWidth: '100%' }}>{label}…</span>
+      <span className="dim tiny">{fmtS(secs)}{live.usage?.output ? ` · ${nf(live.usage.output)} tokens` : ''} · {tx('Échap pour arrêter')}</span>
+    </div>
+  );
+}
+
+const PREP_T: Record<string, () => string> = {
+  download: () => tx('Téléchargement'), transcribe: () => tx('Transcription'), speakers: () => tx('Qui parle'), proxy: () => tx('Copie allégée (aperçu)'),
+};
+const prepTitle = (s: PrepStage) => PREP_T[s.kind]?.() || s.title;
+
+/** media preparation before editing: one line per stage, with its actual progress */
+function PrepCard({ stages }: { stages: PrepStage[] }) {
+  const allDone = stages.every((s) => s.status !== 'running' && s.status !== 'queued');
+  const [open, setOpen] = useState(true);
+  useEffect(() => { if (allDone) setOpen(false); }, [allDone]);
+  return (
+    <div className="cc-card">
+      <div className="cc-card-head" onClick={() => setOpen(!open)}>
+        <b>{allDone ? tx('Médias prêts') : tx('Préparation des médias')}</b>
+        <span className="tiny dim">{stages.filter((s) => s.status === 'done').length}/{stages.length}</span>
+      </div>
+      {open ? stages.map((s) => (
+        <div key={s.id} className={`cc-stage ${s.status}`}>
+          <span className="cc-stage-ic">{s.status === 'running' ? <span className="spin" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : s.status === 'done' ? <Icon name="check" size={12} /> : s.status === 'error' ? <Icon name="x" size={12} /> : <span className="cc-dot" />}</span>
+          <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
+            <div className="row" style={{ gap: 6 }}>
+              <span>{prepTitle(s)}</span>
+              <span className="tiny dim ellipsis grow">{s.name}</span>
+              <span className="tiny mono">{s.status === 'running' ? `${Math.round(s.progress * 100)} %` : s.status === 'queued' ? tx('en attente') : s.status === 'done' ? tx('fait') : s.status === 'error' ? tx('échec') : ''}</span>
+            </div>
+            {s.status === 'running' ? <div className="cc-bar"><i style={{ width: `${Math.max(2, s.progress * 100)}%` }} /></div> : null}
+            {s.detail && (s.status === 'running' || s.status === 'error') ? <span className="tiny dim ellipsis">{s.detail}</span> : null}
+          </div>
+        </div>
+      )) : null}
+    </div>
+  );
+}
+
+/** steps announced by the AI, checked off as they go */
+function TodoList({ items, done }: { items: Todo[]; done?: boolean }) {
+  return (
+    <div className="cc-card">
+      <div className="cc-card-head"><b>{tx('Étapes')}</b><span className="tiny dim">{items.filter((i) => i.status === 'done').length}/{items.length}</span></div>
+      {items.map((t, i) => {
+        const st = done && t.status === 'doing' ? 'done' : t.status;
+        return (
+          <div key={i} className={`cc-todo ${st}`}>
+            <span className="cc-stage-ic">{st === 'doing' ? <span className="spin" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : st === 'done' ? <Icon name="check" size={12} /> : <span className="cc-dot" />}</span>
+            <span>{t.text}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

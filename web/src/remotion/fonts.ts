@@ -8,7 +8,7 @@ import { loadFont as lato } from '@remotion/google-fonts/Lato';
 import { loadFont as oswald } from '@remotion/google-fonts/Oswald';
 import { loadFont as playfair } from '@remotion/google-fonts/PlayfairDisplay';
 
-// Polices proposées pour les sous-titres, titres et cartons (Montserrat = police par défaut).
+// Fonts offered for subtitles, titles and title cards (Montserrat = default font).
 const opts = { subsets: ['latin', 'latin-ext'] as ('latin' | 'latin-ext')[] };
 export const FONTS: Record<string, string> = {
   Montserrat: montserrat('normal', { weights: ['700', '800', '900'], ...opts }).fontFamily,

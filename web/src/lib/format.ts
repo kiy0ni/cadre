@@ -1,8 +1,8 @@
 import { locale, tx } from './i18n';
 
-// Formats d'affichage : durées, timecodes (HH:MM:SS:II), dates relatives, tailles.
+// Display formats: durations, timecodes (HH:MM:SS:FF), relative dates, sizes.
 
-/** 83.4 -> « 1:23.4 » (heures si besoin) */
+/** 83.4 -> "1:23.4" (hours when needed) */
 export function fmt(sec: number, dec = 1): string {
   if (!isFinite(sec)) return '–';
   const s = Math.max(0, sec);
@@ -13,7 +13,7 @@ export function fmt(sec: number, dec = 1): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${rs}` : `${m}:${rs}`;
 }
 
-/** image -> timecode « 00:01:23:12 » */
+/** frame -> timecode "00:01:23:12" */
 export function tc(frame: number, fps: number): string {
   const f = Math.max(0, Math.round(frame));
   const ff = f % fps;
@@ -22,7 +22,7 @@ export function tc(frame: number, fps: number): string {
   return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}:${p(ff)}`;
 }
 
-/** libellé court de la règle : « 1:05 », « 1:05:00 » (heures) */
+/** short ruler label: "1:05", "1:05:00" (hours) */
 export function ruler(sec: number): string {
   const s = Math.round(sec);
   const h = Math.floor(s / 3600);
@@ -31,7 +31,7 @@ export function ruler(sec: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}` : `${m}:${String(r).padStart(2, '0')}`;
 }
 
-/** « 1:23.5 », « 83.5 », « 00:01:23:12 » (avec fps) -> secondes */
+/** "1:23.5", "83.5", "00:01:23:12" (with fps) -> seconds */
 export function parseTime(v: string, fps = 30): number | null {
   const t = v.trim().replace(',', '.');
   if (!t) return null;
@@ -53,7 +53,7 @@ export const mb = (n: number) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} ${tx('Go')}
 
 export const nf = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : String(n));
 
-/** libellé d'une tâche du moteur dans la langue de l'interface */
+/** label of an engine job in the UI language */
 export function jobLabel(j: { kind: string; label: string }) {
   const k: Record<string, string> = {
     proxy: tx('Copie allégée'), transcribe: tx('Transcription'), speakers: tx('Reconnaissance des voix'), stems: tx('Séparation voix / fond'),

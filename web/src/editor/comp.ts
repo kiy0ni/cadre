@@ -7,7 +7,7 @@ export interface CompCtx { props: CompositionProps; r: Resolved; style: ReturnTy
 export const Comp = createContext<CompCtx | null>(null);
 export const useComp = () => useContext(Comp)!;
 
-/** props de la composition (aperçu) + timeline résolue, recalculées à chaque modification */
+/** composition props (preview) + resolved timeline, recomputed on every change */
 export function useBuildComp(): CompCtx | null {
   const project = useStore((s) => s.project);
   const words = useStore((s) => s.words);
@@ -17,8 +17,8 @@ export function useBuildComp(): CompCtx | null {
   return useMemo(() => {
     if (!project) return null;
     const pack = packs.find((p) => p.id === project.packId);
-    // banque de sons (iCloud) pas encore lisible : on n'essaie pas de charger musiques, VFX ni outro (le lecteur
-    // attendrait ces fichiers indéfiniment et l'image resterait noire)
+    // sound bank (iCloud) not readable yet: don't try to load music, VFX or outro (the player
+    // would wait for those files forever and the picture would stay black)
     const bankLocked = !library;
     const isBank = (u?: string | null) => !!u && decodeURIComponent(u).includes('/Library/Mobile Documents/');
     const shown = bankLocked ? {
@@ -39,7 +39,7 @@ export function useBuildComp(): CompCtx | null {
   }, [project, words, speakers, packs, library]);
 }
 
-/** plan (et temps source) sous une image de sortie */
+/** shot (and source time) under an output frame */
 export function clipAt(r: Resolved, timeline: Item[], f: number): { clip: ClipItem; t: number } | null {
   for (const it of r.items) {
     if (f < it.from || f >= it.from + it.dur) continue;

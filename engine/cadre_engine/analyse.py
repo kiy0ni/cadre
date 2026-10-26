@@ -1,5 +1,5 @@
-"""Analyse des sources : transcription mot à mot, qui parle (empreintes vocales), voix / reste séparés, moments forts.
-Plus la fabrication des sous-titres (groupes de sens courts, gros mots censurés, couleur par personne)."""
+"""Source analysis: word-level transcription, who is speaking (voice embeddings), separated voice / background, highlights.
+Plus subtitle building (short meaningful groups, censored swear words, color per person)."""
 import os, re, json
 import numpy as np
 from . import store, ff, text as TX, transcribe as ASR, voices as VX
@@ -21,9 +21,9 @@ def transcribe(p, sid, job=None, chunk=600):
     model = store.settings().get('transcription', {}).get('model', 'turbo')
     for i, (a, b) in enumerate(ranges):
         key = f'{a:g}-{b:g}'
-        if job: job.step(i / len(ranges), f'transcription {int(a // 60)}–{int(b // 60)} min')
+        if job: job.step(i / len(ranges), f'transcribing {int(a // 60)}–{int(b // 60)} min')
         if key in res: continue
-        res[key] = ASR.chunk(src['path'], a, b, wh.get('language') or 'fr', prompt, model)
+        res[key] = ASR.chunk(src['path'], a, b, wh.get('language') or None, prompt, model)     # empty language = auto-detect
         store.write_json(raw_path, res)
     words = flatten(res)
     gl = {k.lower(): v for k, v in (p.get('glossary') or {}).items()}
@@ -34,12 +34,13 @@ def transcribe(p, sid, job=None, chunk=600):
     return len(words)
 
 
+# known Whisper hallucinations (French subtitle credits): language data, kept as is
 HALLU = re.compile(r"sous-?titr|amara\.org|merci d'avoir regardé|abonnez-vous", re.I)
 
 
 def flatten(res):
-    """{plage: mots} -> liste triée : sans doublons aux raccords, morceaux de mots recollés (« aujourd » + « 'hui »),
-    sans les hallucinations connues de Whisper (« Sous-titrage ST' 501 » sur les fins de fichier)."""
+    """{range: words} -> sorted list: no duplicates at the seams, word fragments glued back together ("aujourd" + "'hui"),
+    without Whisper's known hallucinations ("Sous-titrage ST' 501" at the end of files)."""
     allw = sorted((w for ws in res.values() for w in ws), key=lambda w: w[0])
     out = []
     for w in allw:
@@ -51,7 +52,7 @@ def flatten(res):
             out[-1][2] += tok.strip(); out[-1][1] = w[1]; out[-1][3] = min(out[-1][3], w[3])
             continue
         out.append(list(w[:4]))
-    # hallucinations : phrase entière collée en fin de plage, mots de durée nulle
+    # hallucinations: a whole sentence stuck at the end of a range, zero-length words
     text = ''.join(w[2] for w in out)
     if HALLU.search(text):
         keep, i = [], 0
@@ -65,15 +66,15 @@ def flatten(res):
     return out
 
 
-# ------------------------------------------------------------------ sous-titres
+# ------------------------------------------------------------------ subtitles
 def _core(t):
     return re.sub(r"[^\wà-ÿ'*-]", '', t.lower())
 
 
 def make_captions(words, a, b, style, glossary=None, default_speaker=None):
-    """mots de [a, b] -> [{t0, t1, text, speaker}] : coupure aux pauses (> 0,45 s), à la ponctuation, au meilleur endroit
-    avant « mais / parce que / and… » ; jamais sur un article. Mode « words » (Shorts) : 1-2 mots par sous-titre.
-    Casse : « lower » (tout en minuscules sauf noms propres), « upper », ou « natural » (celle de la transcription)."""
+    """words in [a, b] -> [{t0, t1, text, speaker}]: break at pauses (> 0.45 s), at punctuation, at the best spot
+    before "but / because / mais…"; never after an article. "words" mode (Shorts): 1-2 words per subtitle.
+    Case: "lower" (all lowercase except proper nouns), "upper", or "natural" (as transcribed)."""
     cap = (style or {}).get('captions', {})
     maxlen = cap.get('maxChars', 32)
     per = cap.get('wordsPerCaption', 2) if cap.get('mode') == 'words' else None
@@ -90,7 +91,7 @@ def make_captions(words, a, b, style, glossary=None, default_speaker=None):
         if censor: tok = TX.clean_word(tok)
         if c in gl: tok = gl[c]
         elif case == 'lower':
-            # un mot capitalisé au milieu d'une phrase = nom propre : on le garde
+            # a capitalized word mid-sentence = proper noun: keep it
             proper = tok[:1].isupper() and prev_tok and not prev_tok.endswith(('.', '?', '!'))
             if not proper: tok = tok.lower()
         prev_tok = tok
@@ -131,7 +132,7 @@ def make_captions(words, a, b, style, glossary=None, default_speaker=None):
 
 
 def dump(words, a, b, speakers=None, step=6.0):
-    """texte compact d'une plage pour l'IA : une ligne toutes les ~6 s avec son temps et qui parle."""
+    """compact text of a range for the AI: one line every ~6 s with its time and who is speaking."""
     lines, cur, t0, spk = [], [], None, None
     for w in words:
         if not (a <= w[0] < b): continue
@@ -144,21 +145,23 @@ def dump(words, a, b, speakers=None, step=6.0):
     return '\n'.join(lines)
 
 
-# ------------------------------------------------------------------ moments forts
+# ------------------------------------------------------------------ highlights
+# excited exclamations (language data: French, then English)
 HYPE = (r"let'?s go|oh non|non non|quoi \?|c'est pas possible|mdr|ptdr|j'ai gagné|premier|dernier|pourquoi|au secours|"
-        r"incroyable|la honte|nooo|ah non|oh my god|no way|what\?|let's go|insane|wow|omg|bro")
+        r"incroyable|la honte|nooo|ah non|oh my god|no way|what\?|let's go|insane|wow|omg|bro|"
+        r"oh no|no no|what the|i won|help|unbelievable|lmao")
 
 
 def loudness(path, sr=8000):
-    """niveau (dB) par seconde du son de la source"""
+    """level (dB) per second of the source audio"""
     raw = ff.run(['-loglevel', 'error', '-i', path, '-vn', '-ac', '1', '-ar', str(sr), '-f', 'f32le', '-'], capture_output=True, check=True).stdout
     x = np.frombuffer(raw, np.float32); n = len(x) // sr
     return 20 * np.log10(np.sqrt((x[:n * sr].reshape(n, sr) ** 2).mean(1)) + 1e-9)
 
 
 def moments(p, sid, top=40, spacing=25):
-    """passages où il se passe quelque chose : éclats de voix (nettement au-dessus du niveau local), gros mots,
-    mots d'émotion. -> [{t, pic, score, extrait}]"""
+    """passages where something happens: raised voices (clearly above the local level), swear words,
+    emotional words. -> [{t, pic, score, extrait}] (pic = peak, extrait = excerpt)"""
     src = store.source(p, sid)
     cache = f'{store.pdir(p["id"])}/words/{sid}.loud.npy'
     if os.path.exists(cache): L = np.load(cache)
@@ -188,17 +191,17 @@ def moments(p, sid, top=40, spacing=25):
     return sorted(out, key=lambda m: m['t'])
 
 
-# ------------------------------------------------------------------ voix / reste (Demucs)
+# ------------------------------------------------------------------ voice / background (Demucs)
 def stems(p, sid, job=None):
     src = store.source(p, sid)
-    if job: job.step(0.05, 'séparation voix / reste…')
+    if job: job.step(0.05, 'separating voice / background…')
     voice, rest = VX.separate(src['path'], 0.0, round(float(src['duration']), 2))
     out = {}
     d = f'{store.pdir(p["id"])}/stems'
     os.makedirs(d, exist_ok=True)
     for wav, name in ((voice, 'voice'), (rest, 'game')):
         m4a = f'{d}/{sid}_{name}.m4a'
-        if job: job.step(0.85 if name == 'voice' else 0.92, 'encodage')
+        if job: job.step(0.85 if name == 'voice' else 0.92, 'encoding')
         ff.run(['-y', '-loglevel', 'error', '-i', wav, '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', m4a], check=True)
         out[name] = file_url(m4a)
     g = VX.read16(rest)
@@ -209,7 +212,7 @@ def stems(p, sid, job=None):
     return out
 
 
-# ------------------------------------------------------------------ qui parle (empreintes vocales)
+# ------------------------------------------------------------------ who is speaking (voice embeddings)
 def embed_range(src, a, b):
     x = VX.audio16(src['path'], a, b, src['duration'])
     wins = VX.windows(x)
@@ -221,7 +224,7 @@ def embed_range(src, a, b):
 
 def enroll_from_source(sp_id, p, sid, a, b):
     emb, wins = embed_range(store.source(p, sid), a, b)
-    if len(emb) == 0: raise ValueError("pas assez de parole dans l'extrait (au moins 1,2 s de voix)")
+    if len(emb) == 0: raise ValueError("not enough speech in the excerpt (at least 1.2 s of voice)")
     return _add_samples(sp_id, emb, {'project': p['id'], 'source': sid, 't0': a, 't1': b})
 
 
@@ -229,7 +232,7 @@ def enroll_from_file(sp_id, path):
     raw = ff.run(['-v', 'error', '-i', path, '-vn', '-ac', '1', '-ar', '16000', '-f', 'f32le', '-'], capture_output=True, check=True).stdout
     x = np.frombuffer(raw, np.float32).copy()
     emb = VX.embed(x, VX.windows(x))
-    if len(emb) == 0: raise ValueError("pas assez de parole dans l'enregistrement (au moins 5 secondes)")
+    if len(emb) == 0: raise ValueError("not enough speech in the recording (at least 5 seconds)")
     return _add_samples(sp_id, emb, {'file': os.path.basename(path)})
 
 
@@ -250,18 +253,18 @@ def _add_samples(sp_id, emb, info):
 
 
 def identify(p, sid, job=None, threshold=0.22):
-    """pose « qui parle » sur chaque mot : fenêtres de 1,2 s comparées aux empreintes des personnes du projet."""
+    """tags "who is speaking" on each word: 1.2 s windows compared with the voice embeddings of the project's people."""
     src = store.source(p, sid)
     refs = {s: np.load(f'{SPEAKERS}/{s}.npy') for s in p.get('speakers', []) if os.path.exists(f'{SPEAKERS}/{s}.npy')}
-    if not refs: raise ValueError("aucune personne du projet n'a d'empreinte vocale")
+    if not refs: raise ValueError("no one in the project has a voice embedding")
     names = list(refs); R = np.stack([refs[n] for n in names])
     words = store.get_words(p['id'], sid)
-    if not words: raise ValueError("transcris d'abord la source")
+    if not words: raise ValueError("transcribe the source first")
     dur = float(src['duration']); chunk = 300.0
     labels, t = [], 0.0
     while t < dur:
         b = min(dur, t + chunk)
-        if job: job.step(t / dur, f'qui parle : {int(t // 60)}–{int(b // 60)} min')
+        if job: job.step(t / dur, f'who is speaking: {int(t // 60)}–{int(b // 60)} min')
         x = VX.audio16(src['path'], t, b, src['duration'])
         wins = VX.windows(x)
         if wins:

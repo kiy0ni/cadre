@@ -1,10 +1,10 @@
-// Cadre — appli de bureau (Electron), macOS et Windows.
-// - Lance le moteur (Python, ../engine) et le relance s'il s'arrête. C'est l'appli qui lit les fichiers : macOS demande
-//   l'accès aux dossiers protégés (Documents, iCloud) au nom de « Cadre ».
-// - Deux modes : « lié » (dépôt de développement : engine/.venv existe déjà) ou « autonome » (appli distribuée : le moteur
-//   est dans les ressources ; au premier lancement, uv — fourni — installe Python et les dépendances dans les données de
-//   l'utilisateur ; aucune installation manuelle).
-// - `--background` (lancement à l'ouverture de session) : pas de fenêtre, le moteur tourne pour l'accès à distance.
+// Cadre — desktop app (Electron), macOS and Windows.
+// - Starts the engine (Python, ../engine) and restarts it if it stops. The app is what reads the files, so macOS asks
+//   for access to protected folders (Documents, iCloud) on behalf of "Cadre".
+// - Two modes: "linked" (development repo: engine/.venv already exists) or "standalone" (distributed app: the engine
+//   ships in the resources; on first launch, the bundled uv installs Python and the dependencies into the user's
+//   data folder; no manual installation).
+// - `--background` (launched at login): no window, the engine runs for remote access.
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, nativeTheme, session } = require('electron');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
@@ -18,7 +18,7 @@ const NAME = 'Cadre';
 app.setName(NAME);
 
 const CONF = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'app-path.json'), 'utf8')); } catch { return {}; } })();
-// racine contenant engine/ et web/ : variable CADRE_ROOT, dépôt lié (app-path.json), ou ressources de l'appli
+// root containing engine/ and web/: CADRE_ROOT variable, linked repo (app-path.json), or the app's resources
 const ROOT = process.env.CADRE_ROOT || CONF.root || (app.isPackaged ? path.join(process.resourcesPath, 'cadre') : path.resolve(__dirname, '..'));
 const ENGINE = path.join(ROOT, 'engine');
 const LINKED_PY = path.join(ENGINE, '.venv', WIN ? 'Scripts' : 'bin', WIN ? 'python.exe' : 'python');
@@ -28,7 +28,7 @@ const ENV_DIR = path.join(USER, 'engine-env');
 const PY = LINKED ? LINKED_PY : path.join(ENV_DIR, WIN ? 'Scripts' : 'bin', WIN ? 'python.exe' : 'python');
 const UV = [path.join(process.resourcesPath || '', 'bin', WIN ? 'uv.exe' : 'uv'), path.join(__dirname, 'bin', WIN ? 'uv.exe' : 'uv')].find((p) => fs.existsSync(p))
   || (WIN ? 'uv.exe' : 'uv');
-const RENDER_DIR = path.join(USER, 'render');                 // moteur de rendu copié ici (il télécharge son navigateur au besoin)
+const RENDER_DIR = path.join(USER, 'render');                 // render engine copied here (it downloads its browser when needed)
 const PORT = 8765;
 const URL = `http://127.0.0.1:${PORT}`;
 const LOG_DIR = app.getPath('logs');
@@ -39,7 +39,7 @@ const VERSION = app.getVersion();
 let server = null;
 let quitting = false;
 let win = null;
-let target = null;          // lien cadre://p/<id> à ouvrir
+let target = null;          // cadre://p/<id> link to open
 let setupState = null;      // { step, detail, error }
 
 nativeTheme.themeSource = 'dark';
@@ -47,9 +47,9 @@ const SYS_LANG = (() => { try { return app.getLocale().slice(0, 2); } catch { re
 const L = (fr, en) => (SYS_LANG === 'fr' ? fr : en);
 app.setAboutPanelOptions({ applicationName: NAME, applicationVersion: VERSION, copyright: L('Logiciel de montage avec assistant IA', 'Video editor with an AI assistant') });
 fs.mkdirSync(LOG_DIR, { recursive: true });
-const log = (s) => { try { fs.appendFileSync(LOG, `[${new Date().toISOString()}] ${s}\n`); } catch { /* journal indisponible */ } };
+const log = (s) => { try { fs.appendFileSync(LOG, `[${new Date().toISOString()}] ${s}\n`); } catch { /* log unavailable */ } };
 
-/** cadre://p/<id> -> page de l'éditeur ; cadre:// -> accueil */
+/** cadre://p/<id> -> editor page; cadre:// -> home */
 function pageFor(link) {
   const m = /^cadre:\/\/(?:p|projet)\/([\w-]+)/.exec(link || '');
   return m ? `${URL}/#/p/${m[1]}` : URL;
@@ -70,7 +70,7 @@ function baseEnv() {
     ...process.env,
     PATH: [...extra, process.env.PATH || ''].join(path.delimiter),
     CADRE_UV: UV,
-    CADRE_NODE: process.execPath,                               // le rendu tourne avec le Node intégré à l'appli
+    CADRE_NODE: process.execPath,                               // rendering runs on the app's built-in Node
     PYTHONUNBUFFERED: '1',
   };
   if (!LINKED) env.UV_PROJECT_ENVIRONMENT = ENV_DIR;
@@ -85,11 +85,11 @@ function run(cmd, args, opts, onLine) {
     p.stdout.on('data', feed);
     p.stderr.on('data', feed);
     p.on('error', reject);
-    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${path.basename(cmd)} a échoué (code ${code})`))));
+    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(L(`${path.basename(cmd)} a échoué (code ${code})`, `${path.basename(cmd)} failed (code ${code})`)))));
   });
 }
 
-/** premier lancement (mode autonome) : Python + dépendances du moteur, puis moteur de rendu */
+/** first launch (standalone mode): Python + engine dependencies, then the render engine */
 async function bootstrap() {
   if (LINKED) return;
   const marker = path.join(USER, 'engine-version');
@@ -100,7 +100,7 @@ async function bootstrap() {
   if (done && renderDone) return;
   fs.mkdirSync(USER, { recursive: true });
   if (!done) {
-    setupState = { step: 'Installation du moteur', detail: 'téléchargement de Python et des composants (une seule fois, quelques minutes)…' };
+    setupState = { step: L('Installation du moteur', 'Installing the engine'), detail: L('téléchargement de Python et des composants (une seule fois, quelques minutes)…', 'downloading Python and components (one time only, a few minutes)…') };
     pushSetup();
     await run(UV, ['sync', '--frozen', '--no-dev', '--project', ENGINE, '--python', '3.13'], { cwd: ENGINE, env: { ...baseEnv(), UV_PROJECT_ENVIRONMENT: ENV_DIR } }, (l) => {
       setupState.detail = l.slice(0, 140);
@@ -109,7 +109,7 @@ async function bootstrap() {
     fs.writeFileSync(marker, VERSION);
   }
   if (!renderDone) {
-    setupState = { step: 'Préparation du rendu vidéo', detail: 'copie du moteur de rendu…' };
+    setupState = { step: L('Préparation du rendu vidéo', 'Preparing video rendering'), detail: L('copie du moteur de rendu…', 'copying the render engine…') };
     pushSetup();
     fs.rmSync(RENDER_DIR, { recursive: true, force: true });
     fs.cpSync(renderSrc, RENDER_DIR, { recursive: true, dereference: true });
@@ -120,20 +120,20 @@ async function bootstrap() {
 
 async function ensureServer() {
   if (server || quitting) return;
-  if (await health()) return;              // un moteur tourne déjà (lancé autrement) : on l'utilise
+  if (await health()) return;              // an engine is already running (started some other way): use it
   try { await bootstrap(); } catch (e) {
-    log(`installation : ${e.message}`);
-    setupState = { step: 'Installation impossible', detail: `${e.message}. Vérifie la connexion Internet puis relance Cadre. Journal : ${LOG}`, error: true };
+    log(`setup: ${e.message}`);
+    setupState = { step: L('Installation impossible', 'Setup failed'), detail: L(`${e.message}. Vérifie la connexion Internet puis relance Cadre. Journal : ${LOG}`, `${e.message}. Check your Internet connection, then restart Cadre. Log: ${LOG}`), error: true };
     pushSetup();
     return;
   }
   const out = fs.openSync(LOG, 'a');
   server = spawn(PY, ['-m', 'cadre_engine.run'], { cwd: ENGINE, env: baseEnv(), stdio: ['ignore', out, out], windowsHide: true });
-  log(`moteur lancé (${LINKED ? 'lié' : 'autonome'}) : ${PY}`);
+  log(`engine started (${LINKED ? 'linked' : 'standalone'}): ${PY}`);
   server.on('exit', (code) => {
-    log(`moteur arrêté (code ${code})`);
+    log(`engine stopped (code ${code})`);
     server = null;
-    if (!quitting) setTimeout(ensureServer, 3000);   // relance automatique
+    if (!quitting) setTimeout(ensureServer, 3000);   // automatic restart
   });
 }
 
@@ -142,7 +142,7 @@ const splash = () => 'data:text/html;charset=utf-8,' + encodeURIComponent(`<!doc
 <div style="text-align:center;max-width:460px;padding:0 24px">
 <svg viewBox="0 0 24 24" width="44" height="44"><rect x="1" y="1" width="22" height="22" rx="5" fill="#3a82f7"/><path d="M6.5 9.5V6.5h3 M17.5 9.5V6.5h-3 M6.5 14.5v3h3 M17.5 14.5v3h-3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
 <div style="font-weight:600;font-size:16px;margin:14px 0 6px">Cadre</div>
-<div id="s" style="color:#a4a7ae">Démarrage…</div>
+<div id="s" style="color:#a4a7ae">${L('Démarrage…', 'Starting…')}</div>
 <div id="d" style="color:#6c6f77;font:11px ui-monospace,Menlo,monospace;margin-top:10px;min-height:28px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
 </div>
 <script>window.setup=(s,d,e)=>{document.getElementById('s').textContent=s;document.getElementById('s').style.color=e?'#e5534b':'#a4a7ae';document.getElementById('d').textContent=d||''}</script>
@@ -165,7 +165,7 @@ function savedBounds() {
 }
 function rememberBounds() {
   if (!win || win.isDestroyed()) return;
-  try { fs.writeFileSync(BOUNDS, JSON.stringify({ ...win.getNormalBounds(), maximized: win.isMaximized() })); } catch { /* disque plein ? */ }
+  try { fs.writeFileSync(BOUNDS, JSON.stringify({ ...win.getNormalBounds(), maximized: win.isMaximized() })); } catch { /* disk full? */ }
 }
 
 async function createWindow() {
@@ -187,7 +187,7 @@ async function createWindow() {
   win.on('focus', () => buildMenu());
   win.on('closed', () => {
     win = null;
-    if (MAC && !quitting) app.dock.hide();   // le moteur continue en fond
+    if (MAC && !quitting) app.dock.hide();   // the engine keeps running in the background
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith(URL)) return { action: 'allow' };
@@ -222,7 +222,7 @@ function fetchRecent() {
     const req = http.get(`${URL}/api/projects`, { timeout: 1500 }, (r) => {
       let d = '';
       r.on('data', (c) => { d += c; });
-      r.on('end', () => { try { recent = JSON.parse(d).slice(0, 8); } catch { /* moteur pas prêt */ } res(); });
+      r.on('end', () => { try { recent = JSON.parse(d).slice(0, 8); } catch { /* engine not ready */ } res(); });
     });
     req.on('error', () => res());
     req.on('timeout', () => { req.destroy(); res(); });
@@ -287,20 +287,21 @@ async function buildMenu() {
 
 ipcMain.handle('pick-files', async (_e, opts = {}) => {
   const r = await dialog.showOpenDialog(win, {
-    title: 'Importer des médias', properties: ['openFile', 'multiSelections'],
+    title: L('Importer des médias', 'Import Media'), properties: ['openFile', 'multiSelections'],
     filters: opts.images ? [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
-      : [{ name: 'Médias', extensions: ['mp4', 'mov', 'mkv', 'webm', 'm4v', 'avi', 'mts', 'm2ts', 'ts', 'flv', 'mxf', 'mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'aif', 'aiff', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'heic'] }],
+      : [{ name: L('Médias', 'Media'), extensions: ['mp4', 'mov', 'mkv', 'webm', 'm4v', 'avi', 'mts', 'm2ts', 'ts', 'flv', 'mxf', 'mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'aif', 'aiff', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'heic'] }],
   });
   return r.canceled ? [] : r.filePaths;
 });
 ipcMain.handle('pick-folder', async () => {
-  const r = await dialog.showOpenDialog(win, { title: 'Choisir un dossier', properties: ['openDirectory'] });
+  const r = await dialog.showOpenDialog(win, { title: L('Choisir un dossier', 'Choose a Folder'), properties: ['openDirectory'] });
   return r.canceled ? null : r.filePaths[0];
 });
 ipcMain.on('reveal', (_e, p) => shell.showItemInFolder(p));
 ipcMain.on('open-external', (_e, u) => { if (/^https?:\/\//.test(u)) shell.openExternal(u); });
 
-// lancement à l'ouverture de session, sans fenêtre (moteur disponible pour l'accès à distance)
+// launch at login, without a window (engine available for remote access);
+// restarted by macOS if the app crashes (not when it is quit normally)
 function loginItem() {
   if (!app.isPackaged) return;
   if (MAC) {
@@ -311,10 +312,12 @@ function loginItem() {
 <key>Label</key><string>app.cadre</string>
 <key>ProgramArguments</key><array><string>${process.execPath}</string><string>--background</string></array>
 <key>RunAtLoad</key><true/>
+<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+<key>ThrottleInterval</key><integer>15</integer>
 <key>ProcessType</key><string>Interactive</string>
 </dict></plist>
 `;
-    try { if (!fs.existsSync(plist) || fs.readFileSync(plist, 'utf8') !== body) fs.writeFileSync(plist, body); } catch (e) { log(`ouverture de session : ${e.message}`); }
+    try { if (!fs.existsSync(plist) || fs.readFileSync(plist, 'utf8') !== body) fs.writeFileSync(plist, body); } catch (e) { log(`login item: ${e.message}`); }
   } else {
     app.setLoginItemSettings({ openAtLogin: true, args: ['--background'] });
   }
@@ -327,13 +330,13 @@ app.on('second-instance', (_e, argv) => {
   createWindow().then(() => { if (link && win) win.loadURL(pageFor(link)); });
 });
 app.on('activate', () => createWindow());
-app.on('window-all-closed', () => { /* on reste actif : moteur pour l'accès à distance */ });
+app.on('window-all-closed', () => { /* stay alive: engine for remote access */ });
 app.on('before-quit', () => {
   quitting = true;
   if (server) {
     const s = server;
     s.kill('SIGTERM');
-    setTimeout(() => { try { s.kill('SIGKILL'); } catch { /* déjà arrêté */ } }, 2500);
+    setTimeout(() => { try { s.kill('SIGKILL'); } catch { /* already stopped */ } }, 2500);
   }
 });
 

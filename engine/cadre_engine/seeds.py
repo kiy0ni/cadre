@@ -1,4 +1,4 @@
-"""Données de départ : styles intégrés copiés dans le dossier de l'utilisateur (une seule fois, modifiables ensuite)."""
+"""Starter data: built-in styles copied into the user's folder (once only, editable afterwards)."""
 import json
 import os
 from .config import BUILTIN_STYLES, STYLES

@@ -1,4 +1,4 @@
-// Espaces de travail spécialisés : Couleur (scopes + correction), Audio (table de mixage), Export (préréglages, historique).
+// Specialized workspaces: Color (scopes + correction), Audio (mixing console), Export (presets, history).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, type SystemInfo } from '../lib/api';
 import { desktop } from '../lib/desktop';
@@ -15,8 +15,8 @@ import { startExport } from './actions';
 import { getPrefs } from '../lib/prefs';
 import { tx } from '../lib/i18n';
 
-// ---------------------------------------------------------------- Couleur
-/** image de la source sous la tête de lecture (vignette serveur) pour l'élément ciblé */
+// ---------------------------------------------------------------- Color
+/** source frame under the playhead (server thumbnail) for the targeted element */
 function frameImage(p: Project, target: Item | OClip | null, r: ReturnType<typeof useComp>['r']): string {
   if (!target) return '';
   if ('src' in target && target.src) {
@@ -40,7 +40,7 @@ export function Scopes({ src, look }: { src: string; look: Look }) {
   const [kind, setKind] = useState<'wave' | 'vector' | 'hist'>(() => { try { return (localStorage.getItem('cadre-scope') as 'wave') || 'wave'; } catch { return 'wave'; } });
   const cv = useRef<HTMLCanvasElement>(null);
   const filter = cssPreview(colorOf(look));
-  useEffect(() => { try { localStorage.setItem('cadre-scope', kind); } catch { /* stockage indisponible */ } }, [kind]);
+  useEffect(() => { try { localStorage.setItem('cadre-scope', kind); } catch { /* storage unavailable */ } }, [kind]);
   useEffect(() => {
     const c = cv.current;
     if (!c) return;
@@ -81,7 +81,7 @@ export function Scopes({ src, look }: { src: string; look: Look }) {
           const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 8;
           g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
           g.beginPath(); g.moveTo(cx - R, cy); g.lineTo(cx + R, cy); g.moveTo(cx, cy - R); g.lineTo(cx, cy + R); g.stroke();
-          g.strokeStyle = '#a8763e'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + R * Math.cos(-2.15), cy + R * Math.sin(-2.15)); g.stroke(); // ligne des peaux
+          g.strokeStyle = '#a8763e'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + R * Math.cos(-2.15), cy + R * Math.sin(-2.15)); g.stroke(); // skin tone line
           const im = g.getImageData(0, 0, W, H);
           const px = im.data;
           for (let i = 0; i < d.length; i += 8) {
@@ -169,7 +169,7 @@ export function Mixer() {
   );
   return (
     <div className="col" style={{ gap: 0, flex: 1, minHeight: 0 }}>
-      <div className="toolbar"><b style={{ paddingLeft: 4 }}>{tx('Table de mixage')}</b><span className="spacer" /><span className="small dim">{tx('Niveau final :')} {props.pack.style?.loudness ?? -14} LUFS à l'export</span></div>
+      <div className="toolbar"><b style={{ paddingLeft: 4 }}>{tx('Table de mixage')}</b><span className="spacer" /><span className="small dim">{tx('Niveau final :')} {tx('{0} LUFS à l’export', props.pack.style?.loudness ?? -14)}</span></div>
       <div className="mixer">
         {strip('voice', tx('Voix'), mix.voiceDb || 0, !!mix.voiceMuted, (v) => M('voiceDb', v), () => M('voiceMuted', !mix.voiceMuted), 'A1')}
         {strip('music', tx('Musique'), mix.musicDb || 0, !!mix.musicMuted, (v) => M('musicDb', v), () => M('musicMuted', !mix.musicMuted), `A2 · ${r.music.length}`)}
@@ -237,13 +237,22 @@ export function ExportPage() {
         <div className="row wrap" style={{ gap: 8 }}>
           <button className="btn" onClick={() => download(`${base}.srt`, srt)} disabled={!r.captions.length}><Icon name="captions" size={13} /> {tx('Sous-titres (.srt)')}</button>
           <button className="btn" onClick={() => { navigator.clipboard.writeText(chapters); notify(tx('Chapitres copiés')); }} disabled={!r.chapters.length}><Icon name="copy" size={13} /> {tx('Copier les chapitres')}</button>
+          <button className="btn" disabled={!p.timeline.length} title={tx('Montage en XML (plans, coupes, vitesse, incrustations, audio, marqueurs) : Fichier › Importer dans Premiere Pro ou DaVinci Resolve')}
+            onClick={async () => {
+              try {
+                const x = await api.exportXml(p.id);
+                useStore.setState({ renders: await api.renders(p.id) });
+                notify(tx('XML créé : à importer dans Premiere Pro ou DaVinci Resolve'));
+                if (desktop()) desktop()!.reveal(x.path);
+              } catch (e) { notify((e as Error).message); }
+            }}><Icon name="share" size={13} /> {tx('Premiere / Resolve (.xml)')}</button>
         </div>
         {renders.length ? (
           <div className="col" style={{ gap: 4 }}>
             <div className="section-title">{tx('Exports')}</div>
             {renders.map((x) => (
               <div key={x.path} className="rowi" style={{ cursor: 'default', border: '1px solid var(--border)', borderRadius: 5 }}>
-                <Icon name="film" size={13} className="dim" />
+                <Icon name={x.name.endsWith('.xml') ? 'share' : 'film'} size={13} className="dim" />
                 <a className="grow ellipsis" href={x.url} target="_blank" rel="noreferrer">{x.name}</a>
                 <span className="small dim">{mb(x.size)} · {ago(x.created)}</span>
                 {desktop() ? <button className="btn icon sm ghost" onClick={() => desktop()!.reveal(x.path)} title={tx('Afficher dans le dossier')}><Icon name="folder" size={12} /></button> : null}

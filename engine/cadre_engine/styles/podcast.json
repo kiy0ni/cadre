@@ -1,14 +1,14 @@
 {
  "id": "podcast",
  "name": "Podcast / interview",
- "description": "Conversation à plusieurs : coupes douces, couleurs par personne, peu d’effets.",
+ "description": "Multi-person conversation: gentle cuts, a color per person, few effects.",
  "format": {
   "width": 1920,
   "height": 1080,
   "fps": 30
  },
- "structure": "extrait fort en accroche → présentation → échange → conclusion",
- "rules": "# Podcast / interview\n- Garder les échanges entiers ; couper les hésitations et les longs silences, jamais au milieu d'une idée.\n- Changer de cadrage sur la personne qui parle (zoom léger sur sa moitié de l'image) toutes les 10 à 20 s.\n- Sous-titres sobres sur fond, couleur par personne.\n- Pas de bruitages comiques ; musique seulement en ouverture et fermeture.\n- Bandeau (texte « bandeau ») avec le nom de chaque invité à sa première prise de parole.",
+ "structure": "strong excerpt as a hook → introduction → conversation → conclusion",
+ "rules": "# Podcast / interview\n- Keep exchanges whole; cut hesitations and long silences, never in the middle of an idea.\n- Switch framing to the person speaking (slight zoom on their half of the frame) every 10 to 20 s.\n- Understated subtitles on a background, a color per person.\n- No comedic sound effects; music only at the opening and closing.\n- Lower third (\"bandeau\" text style) with each guest's name the first time they speak.",
  "style": {
   "captions": {
    "font": "Inter",
@@ -69,7 +69,7 @@
  "speakers": [],
  "defaultSpeaker": null,
  "whisper": {
-  "language": "fr",
+  "language": "",
   "prompt": ""
  }
 }

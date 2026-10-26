@@ -72,7 +72,7 @@ export function TranscriptPanel({ srcId, setSrcId }: { srcId: string | null; set
     else setRange([i, i]);
     const v = video.current;
     if (v) { v.currentTime = ws[i][0]; }
-    // si le mot est dans un plan de la timeline, la tête de lecture y va aussi
+    // if the word is inside a timeline shot, the playhead moves there too
     const clip = project.timeline.find((it): it is ClipItem => it.type === 'clip' && it.src === src!.id && ws[i][0] >= it.in && ws[i][0] <= it.out);
     if (clip) { const f = srcToFrame(r, clip.id, ws[i][0]); if (f !== null) seek(f); }
   };
@@ -90,7 +90,7 @@ export function TranscriptPanel({ srcId, setSrcId }: { srcId: string | null; set
         const j = p.timeline.findIndex((x) => x.id === sel.itemId);
         if (j >= 0) p.timeline.splice(j + 1, 0, c); else p.timeline.push(c);
       });
-      notify(`Plan ajouté (${fmt(c.out - c.in, 1)} s, ${caps.length} sous-titres)`);
+      notify(tx('Plan ajouté ({0} s, {1} sous-titres)', fmt(c.out - c.in, 1), caps.length));
     });
   };
   const assign = (id: string) => {
@@ -103,8 +103,8 @@ export function TranscriptPanel({ srcId, setSrcId }: { srcId: string | null; set
     if (b - a < 1.5) { notify(tx('Sélectionne au moins 2 secondes où cette personne parle seule.')); return; }
     const { job } = await api.enroll(id, { project: project.id, source: src.id, t0: a, t1: b });
     const j = await followJob(job);
-    if (j.status === 'error') notify(j.error || 'erreur');
-    else { notify(`Voix apprise : ${(j.result as { windows: number }).windows} extraits ajoutés à ${spk(id)?.name}`); useStore.getState().setSpeakers(await api.speakers()); }
+    if (j.status === 'error') notify(j.error || tx('erreur'));
+    else { notify(tx('Voix apprise : {0} extraits ajoutés à {1}', (j.result as { windows: number }).windows, spk(id)?.name || '')); useStore.getState().setSpeakers(await api.speakers()); }
   };
   const fix = () => {
     if (!range) return;
@@ -139,7 +139,7 @@ export function TranscriptPanel({ srcId, setSrcId }: { srcId: string | null; set
         ) : <audio ref={video as unknown as React.RefObject<HTMLAudioElement>} src={src.url} controls onTimeUpdate={onTime} style={{ width: '100%' }} />}
         {range ? (
           <div className="col" style={{ gap: 6, padding: 8, position: 'sticky', top: -10, zIndex: 2, background: 'var(--panel-2)', border: '1px solid var(--border-2)', borderRadius: 5 }}>
-            <div className="row small"><b className="mono">{fmt(a, 1)} → {fmt(b, 1)}</b><span className="muted">{(b - a).toFixed(1)} s · {range[1] - range[0] + 1} mots</span><span className="spacer" />
+            <div className="row small"><b className="mono">{fmt(a, 1)} → {fmt(b, 1)}</b><span className="muted">{(b - a).toFixed(1)} s · {tx('{0} mots', range[1] - range[0] + 1)}</span><span className="spacer" />
               <button className="btn icon sm ghost" onClick={() => setRange(null)}><Icon name="x" size={11} /></button></div>
             <div className="row wrap" style={{ gap: 4 }}>
               <button className="btn sm" onClick={() => playFrom(a, b + 0.3)}><Icon name="play" size={10} /> {tx('Écouter')}</button>

@@ -1,7 +1,7 @@
-// Modèle de projet partagé par l'éditeur, l'aperçu, le rendu et le serveur (server/ai/tools.py).
-// Tous les temps des plans, sous-titres et effets sont en secondes DANS LA SOURCE.
+// Project model shared by the editor, the preview, the renderer and the server (engine/cadre_engine/ai/tools.py).
+// All clip, subtitle and effect times are in seconds IN THE SOURCE.
 
-export type Word = [number, number, string, number, (string | null)?]; // début, fin, mot, proba, personne (null = principale)
+export type Word = [number, number, string, number, (string | null)?]; // start, end, word, probability, person (null = main speaker)
 
 export type SourceStatus = 'none' | 'running' | 'done' | 'error';
 
@@ -46,7 +46,7 @@ export interface Caption {
   style: 'normal' | 'hype' | 'shout';
 }
 
-// ---------- réglages d'image (Transform, Composition, Recadrage, Couleur) — valeurs neutres si absentes
+// ---------- image settings (Transform, Composition, Crop, Color) — neutral values when absent
 export interface ColorAdj {
   preset?: string;
   exposure?: number; // -100..100
@@ -60,21 +60,21 @@ export interface ColorAdj {
 }
 
 export interface Look {
-  x?: number; // décalage en % de la largeur
-  y?: number; // décalage en % de la hauteur
+  x?: number; // offset as % of the width
+  y?: number; // offset as % of the height
   scale?: number; // 1 = 100 %
-  rotation?: number; // degrés
+  rotation?: number; // degrees
   flipH?: boolean;
   flipV?: boolean;
   opacity?: number; // 0..1
-  blend?: string; // mix-blend-mode CSS
-  crop?: { l: number; t: number; r: number; b: number }; // % rognés de chaque côté
+  blend?: string; // CSS mix-blend-mode
+  crop?: { l: number; t: number; r: number; b: number }; // % cropped on each side
   color?: ColorAdj;
-  chroma?: string | null; // couleur du fond vert à retirer (#00ff00)
-  effects?: VFx[]; // effets d'image empilés (dans l'ordre)
+  chroma?: string | null; // green-screen color to key out (#00ff00)
+  effects?: VFx[]; // stacked image effects (in order)
 }
 
-// ---------- effets d'image (bibliothèque générale, paramétrables, cumulables)
+// ---------- image effects (general library, configurable, stackable)
 export type VFxKind = 'blur' | 'sharpen' | 'glow' | 'grain' | 'pixelate' | 'rgbsplit' | 'bw' | 'sepia' | 'invert' | 'hue'
   | 'letterbox' | 'rounded' | 'border' | 'shadow' | 'motion' | 'fade' | 'mirror';
 export interface VFx { id: string; kind: VFxKind; on?: boolean; p: Record<string, number | string> }
@@ -85,42 +85,50 @@ export interface Transition { kind: TransitionKind; dur: number }
 
 export interface ClipItem {
   id: string;
+  before?: number; // empty gap (s) before the item on V1
+  note?: string; // reason given by the AI (shown in the inspector)
   type: 'clip';
   src: string;
   in: number;
   out: number;
   label?: string;
   jump?: boolean | null;
-  gap?: number; // silence max gardé (s) pour ce plan ; sinon celui du pack
+  gap?: number; // max silence kept (s) for this clip; otherwise the pack's
   speed?: number;
   volumeDb?: number;
   captions: Caption[];
   fx: Fx[];
   face?: [number, number] | null;
-  cropX?: number; // recadrage horizontal en vertical (0 = gauche, 0.5 = centre, 1 = droite)
+  cropX?: number; // horizontal framing in vertical format (0 = left, 0.5 = center, 1 = right)
   look?: Look;
-  transition?: Transition | null; // transition d'entrée
-  fadeIn?: number; // fondu audio (s)
+  transition?: Transition | null; // incoming transition
+  fadeIn?: number; // audio fade (s)
   fadeOut?: number;
+  audioOff?: boolean; // unlinked audio: played by separate audio clips (link = this clip's id)
 }
 
 export interface CardItem {
   id: string;
+  before?: number; // empty gap (s) before the item on V1
+  note?: string; // reason given by the AI (shown in the inspector)
   type: 'card';
   dur: number;
   text: string;
   sub?: string;
   style: 'logo' | 'twitch' | 'narr' | 'title' | 'chapter';
   image?: string | null;
-  bg?: string; // fond (défaut : noir)
-  color?: string; // texte (défaut : blanc)
-  band?: string; // bandeau derrière un titre ('' = aucun ; défaut : rouge)
-  autoSfx?: boolean; // sons automatiques du style de carton (défaut : oui)
-  sounds?: { id: string; name: string; at: number; db: number }[]; // sons posés sur le carton (at : s depuis son début)
+  bg?: string; // background (default: black)
+  color?: string; // text (default: white)
+  band?: string; // band behind a title ('' = none; default: red)
+  autoSfx?: boolean; // automatic sounds from the title card style (default: yes)
+  sounds?: { id: string; name: string; at: number; db: number }[];
+  audioOff?: boolean; // sounds unlinked: played by separate clips on A3 (link = this card's id) // sounds placed on the title card (at: s from its start)
 }
 
 export interface FreezeItem {
   id: string;
+  before?: number; // empty gap (s) before the item on V1
+  note?: string; // reason given by the AI (shown in the inspector)
   type: 'freeze';
   src: string;
   t: number;
@@ -128,12 +136,15 @@ export interface FreezeItem {
   target: Target;
   scale: number;
   sfx?: string | null;
+  audioOff?: boolean; // sound unlinked: played by a separate clip on A3
   look?: Look;
   transition?: Transition | null;
 }
 
 export interface MediaItem {
   id: string;
+  before?: number; // empty gap (s) before the item on V1
+  note?: string; // reason given by the AI (shown in the inspector)
   type: 'media';
   path: string;
   url: string;
@@ -141,20 +152,21 @@ export interface MediaItem {
   dur: number;
   chroma?: boolean;
   volumeDb?: number;
+  audioOff?: boolean; // unlinked audio
   look?: Look;
   transition?: Transition | null;
 }
 
-// ---------- pistes libres (au-dessus / en dessous du montage principal), temps = secondes de SORTIE
+// ---------- free tracks (above / below the main edit), times = OUTPUT seconds
 export interface TextStyle {
   font: string;
-  size: number; // px en 1080
+  size: number; // px at 1080
   weight: number;
   color: string;
   stroke: number;
   strokeColor: string;
   bg?: string | null;
-  x: number; // centre, 0..1
+  x: number; // center, 0..1
   y: number;
   align: 'left' | 'center' | 'right';
   anim: 'pop' | 'fade' | 'slide' | 'type' | 'none';
@@ -164,10 +176,11 @@ export interface TextStyle {
   rotation?: number;
 }
 
-interface OBase { id: string; start: number; dur: number; name?: string; fadeIn?: number; fadeOut?: number }
+interface OBase { id: string; start: number; dur: number; name?: string; fadeIn?: number; fadeOut?: number; note?: string /* AI's reason */ }
 export interface OVideo extends OBase { type: 'video'; src?: string; path?: string; url?: string; kind: 'video' | 'image'; in: number; speed?: number; volumeDb?: number; muted?: boolean; look?: Look }
 export interface OText extends OBase { type: 'text'; text: string; style: TextStyle }
-export interface OAudio extends OBase { type: 'audio'; src?: string; path?: string; url?: string; in: number; volumeDb: number; duck?: boolean }
+export interface OAudio extends OBase { type: 'audio'; src?: string; path?: string; url?: string; in: number; volumeDb: number; duck?: boolean; loop?: boolean;
+  speed?: number; link?: string /* id of the clip / video clip this audio comes from (unlinked) */ }
 export type OClip = OVideo | OText | OAudio;
 
 export interface Track {
@@ -178,7 +191,7 @@ export interface Track {
   hidden?: boolean;
   muted?: boolean;
   volumeDb?: number;
-  role?: 'voice' | 'music' | 'sfx'; // pistes intégrées aux lignes A1 Voix / A2 Musique / A3 Bruitages
+  role?: 'voice' | 'music' | 'sfx'; // tracks merged into the A1 Voice / A2 Music / A3 SFX rows
   clips: OClip[];
 }
 
@@ -206,7 +219,7 @@ export interface ChatMsg {
   provider?: string;
 }
 
-// ---------- assistant IA (conversations façon Claude Code)
+// ---------- AI assistant (Claude Code-style conversations)
 export type AiMode = 'auto' | 'ask' | 'plan';
 export type Block =
   | { type: 'text'; text: string }
@@ -216,7 +229,12 @@ export interface Usage { input: number; output: number; cacheRead: number; cost?
 export type ConvMsg =
   | { id: string; role: 'user'; text: string; t: number; mode?: AiMode; context?: string | null }
   | { id: string; role: 'assistant'; t: number; blocks: Block[]; status: 'done' | 'error' | 'cancelled'; error?: string | null; changes?: number;
-      usage?: Usage; durationMs?: number; provider?: string; mode?: AiMode };
+      usage?: Usage; durationMs?: number; provider?: string; mode?: AiMode;
+      summary?: { k: string; a: number; b: number }[]; todos?: Todo[] };
+/** step announced and checked off by the AI (etapes tool) */
+export interface Todo { text: string; status: 'todo' | 'doing' | 'done' }
+/** media preparation before the AI edits (download, transcription…) */
+export interface PrepStage { id: string; kind: string; title: string; name: string; status: string; progress: number; detail: string }
 export interface Conversation { id: string; title: string; createdAt: number; updatedAt: number; sessionId?: string; provider?: string; messages: ConvMsg[] }
 
 export interface Project {
@@ -237,7 +255,7 @@ export interface Project {
   sources: Source[];
   timeline: Item[];
   music: MusicCue[];
-  tracks?: Track[]; // index 0 = piste la plus haute
+  tracks?: Track[]; // index 0 = topmost track
   mix?: Mix;
   markers?: { id: string; t: number; label: string; color?: string }[];
   chat: ChatMsg[];
@@ -357,7 +375,7 @@ export interface JobInfo {
 
 export type JobEvent = { i: number; type: string; t: number; [k: string]: unknown };
 
-// Ce que la composition Remotion reçoit (aperçu ET rendu)
+// What the Remotion composition receives (preview AND render)
 export interface CompositionProps {
   project: Project;
   words: Record<string, Word[]>;

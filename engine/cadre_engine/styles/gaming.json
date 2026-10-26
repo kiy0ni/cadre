@@ -1,0 +1,74 @@
+{
+ "id": "gaming",
+ "name": "Gaming",
+ "description": "Let's plays, stream best-ofs, stream VODs: the best game moments and reactions, tight pacing, the game audio stays present.",
+ "format": {
+  "width": 1920,
+  "height": 1080,
+  "fps": 30
+ },
+ "structure": "hook (the craziest moment, 5-15 s) → title → moments in order (one chapter per match / round / game) → end on one last strong moment",
+ "rules": "# Gaming\n- Sources: gameplay with or without commentary, stream VODs several hours long, facecam. On a long source: `moments_forts` first, then targeted reading, never read everything.\n- What matters: reactions (raised voices, laughter, screams, stunned silence), game moments (win, loss, clutch play, fail, bug, comeback), funny exchanges with chat or teammates.\n- Always keep the setup AND the payoff: what happens on screen just before the reaction, and the reaction all the way through.\n- Cut the game's dead time: menus, loading screens, queues, travel with nothing at stake, pauses. Keep the action readable: never cut in the middle of a game moment.\n- Speech silences are not dead time in gaming: on an action passage without commentary, turn off silence cutting for the shot (`coupes_silences` false).\n- The game audio stays audible under the voice; low background music, only on calm passages or transitions, never over an important game moment.\n- Zoom on the facecam or the action at the moment of the reaction; a freeze frame with a short text for a fail or an absurd moment; sound effects rare and well placed.\n- Subtitles on the important speech (readable, off the game HUD if possible).\n- Long video: one chapter per match, round or game. Short ending, on one last strong moment, no endless outro.",
+ "style": {
+  "captions": {
+   "font": "Montserrat",
+   "weight": 800,
+   "size": 80,
+   "color": "#FFFFFF",
+   "outline": 6,
+   "shadow": 3,
+   "bottom": 90,
+   "mode": "groups",
+   "case": "natural",
+   "uppercase": false,
+   "pop": true,
+   "shoutScale": 1.18,
+   "maxChars": 32
+  },
+  "jumpCuts": {
+   "enabled": true,
+   "gap": 1.0,
+   "pre": 0.15,
+   "post": 0.35
+  },
+  "baseSpeed": 1.0,
+  "face": [
+   0.5,
+   0.42
+  ],
+  "zoom": {
+   "face": 1.5,
+   "center": 1.3
+  },
+  "shakeOnImpact": false,
+  "whooshOnFaceZoom": false,
+  "music": {
+   "db": -22,
+   "duckDb": 8
+  },
+  "sfxDb": 0,
+  "censor": {
+   "captions": false,
+   "audio": false,
+   "duckDb": -22
+  },
+  "stems": {
+   "enabled": true,
+   "gameBoostDb": 4,
+   "gameUnderVoiceDb": 5
+  },
+  "cards": {
+   "twitchHandle": "",
+   "twitchColor": "#9146FF"
+  },
+  "topText": "",
+  "loudness": -14
+ },
+ "builtin": true,
+ "speakers": [],
+ "defaultSpeaker": null,
+ "whisper": {
+  "language": "",
+  "prompt": ""
+ }
+}

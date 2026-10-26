@@ -1,25 +1,26 @@
-"""Règles de texte des sous-titres : gros mots (une lettre remplacée par *), mots à ne pas laisser en fin de ligne."""
+"""Subtitle text rules: swear words (one letter replaced by *), words never to leave at the end of a line.
+The word lists are language data (French and English) and stay as they are."""
 import re
 
 CENSOR = {
-    # français
+    # French
     'putain': 'p*tain', 'putains': 'p*tains', 'merde': 'm*rde', 'merdes': 'm*rdes', 'emmerde': 'emm*rde', 'emmerder': 'emm*rder',
     'bâtard': 'b*tard', 'bâtards': 'b*tards', 'batard': 'b*tard', 'batards': 'b*tards', 'enculé': 'enc*lé', 'enculés': 'enc*lés',
     'enculer': 'enc*ler', 'connard': 'c*nnard', 'connards': 'c*nnards', 'connasse': 'c*nnasse', 'salope': 'sal*pe', 'salopes': 'sal*pes',
     'salaud': 'sal*ud', 'nique': 'n*que', 'niquer': 'n*quer', 'niqué': 'n*qué', 'pute': 'p*te', 'putes': 'p*tes', 'couilles': 'c*uilles',
     'couille': 'c*uille', 'con': 'c*n', 'cons': 'c*ns', 'conne': 'c*nne', 'enfoiré': 'enf*iré', 'enfoirés': 'enf*irés',
     'salopard': 'sal*pard', 'pouffiasse': 'pouf*iasse', 'fdp': 'f*p', 'bordel': 'b*rdel',
-    # anglais
+    # English
     'fuck': 'f*ck', 'fucking': 'f*cking', 'fucked': 'f*cked', 'shit': 'sh*t', 'bitch': 'b*tch', 'asshole': 'a**hole',
     'motherfucker': 'motherf*cker', 'dick': 'd*ck', 'bullshit': 'bullsh*t',
 }
 
 NOEND = {
-    # français : articles, pronoms, prépositions… jamais seuls en fin de sous-titre
+    # French: articles, pronouns, prepositions… never alone at the end of a subtitle
     'ils', 'elles', 'nous', 'vous', 'le', 'la', 'les', 'un', 'une', 'de', 'du', 'des', 'à', 'au', 'aux', 'en', 'et', 'je', 'tu', 'il',
     'elle', 'on', 'ce', 'ma', 'mon', 'ta', 'ton', 'sa', 'son', 'ses', 'mes', 'tes', 'que', 'qui', 'pour', 'par', 'sur', 'dans', 'avec',
     'très', 'plus', 'pas', "j'ai", "c'est", "t'es", 'est', 'suis', 'ne', 'me', 'te', 'se', 'y', 'mais', 'parce',
-    # anglais
+    # English
     'the', 'a', 'an', 'of', 'to', 'and', 'in', 'on', 'for', 'with', 'my', 'your', 'i', "i'm", 'is', 'are', 'but', 'so', 'that',
 }
 BREAK_BEFORE = {'mais', 'parce', 'et', 'donc', 'alors', 'sauf', 'genre', 'comme', 'quand', 'si', 'puis', 'pour', 'que', 'qui',
@@ -30,7 +31,7 @@ _CORE = re.compile(r"^([^\wÀ-ÿ]*)([\wÀ-ÿ'’-]+)([^\wÀ-ÿ]*)$")
 
 
 def clean_word(t):
-    """gros mot -> une lettre remplacée par *"""
+    """swear word -> one letter replaced by *"""
     t = t.strip()
     m = _CORE.match(t)
     if not m: return t

@@ -1,12 +1,12 @@
-"""Stockage sur disque (JSON) : projets, styles de montage, personnes (voix), réglages.
+"""On-disk storage (JSON): projects, editing styles, people (voices), settings.
 
-  data/projects/<id>/project.json     le projet (sources, timeline, musique, préférences, chat)
-  data/projects/<id>/words/<src>.json transcription mot à mot [[début, fin, mot, proba, personne], ...]
-  data/projects/<id>/proxy/<src>.mp4  vidéo légère pour l'aperçu
-  data/projects/<id>/renders/         vidéos finales
-  data/styles/<id>.json               style de montage (règles pour l'IA + réglages de rendu)
-  data/people/<id>.json (+ .npz)      personne : nom, couleur, préférences, empreintes vocales
-  data/settings.json                  réglages (IA…)"""
+  data/projects/<id>/project.json     the project (sources, timeline, music, preferences, chat)
+  data/projects/<id>/words/<src>.json word-level transcript [[start, end, word, prob, person], ...]
+  data/projects/<id>/proxy/<src>.mp4  lightweight video for the preview
+  data/projects/<id>/renders/         final videos
+  data/styles/<id>.json               editing style (rules for the AI + render settings)
+  data/people/<id>.json (+ .npz)      person: name, color, preferences, voice embeddings
+  data/settings.json                  settings (AI…)"""
 import os, json, time, uuid, shutil, threading
 from .config import DATA, PROJECTS, STYLES as PACKS, PEOPLE as SPEAKERS
 
@@ -33,10 +33,10 @@ def write_json(path, data):
     os.replace(tmp, path)
 
 
-# ------------------------------------------------------------------ réglages
+# ------------------------------------------------------------------ settings
 DEFAULT_SETTINGS = {
-    'ai': {'provider': 'auto', 'model': 'claude-opus-5-5', 'effort': 'high', 'cliModel': 'opus'},
-    'libraries': [],             # dossiers de sons / musiques / VFX : [{id, name, path}]
+    'ai': {'provider': 'auto', 'model': 'claude-opus-5-5', 'effort': 'medium', 'cliModel': 'opus'},
+    'libraries': [],             # sound / music / VFX folders: [{id, name, path}]
     'transcription': {'model': 'turbo'},
     'remoteUrl': '',
     'onboarded': False,
@@ -57,10 +57,10 @@ def save_settings(s):
     return settings()
 
 
-# ------------------------------------------------------------------ projets
+# ------------------------------------------------------------------ projects
 def pdir(pid):
     if not pid or '/' in pid or pid.startswith('.'):
-        raise ValueError('id de projet invalide')
+        raise ValueError('invalid project id')
     return f'{PROJECTS}/{pid}'
 
 
@@ -104,7 +104,7 @@ def create_project(name, pack_id, preferences='', speakers=None):
     pid = new_id('p')
     now = time.time()
     p = {
-        'version': 1, 'id': pid, 'rev': 0, 'name': name or 'Nouveau projet', 'title': '',
+        'version': 1, 'id': pid, 'rev': 0, 'name': name or 'New project', 'title': '',
         'createdAt': now, 'updatedAt': now,
         'packId': pack['id'], 'preferences': preferences or '',
         'format': dict(pack.get('format') or {'width': 1920, 'height': 1080, 'fps': 30}),
@@ -135,7 +135,7 @@ def all_words(p):
 def source(p, sid):
     for s in p.get('sources', []):
         if s['id'] == sid or s.get('name') == sid: return s
-    raise KeyError(f'source inconnue : {sid}')
+    raise KeyError(f'unknown source: {sid}')
 
 
 # ------------------------------------------------------------------ packs
@@ -165,7 +165,7 @@ def delete_pack(pid):
     except FileNotFoundError: pass
 
 
-# ------------------------------------------------------------------ personnes (voix)
+# ------------------------------------------------------------------ people (voices)
 def list_speakers():
     out = []
     for f in sorted(os.listdir(SPEAKERS)):

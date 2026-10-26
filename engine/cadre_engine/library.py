@@ -1,10 +1,10 @@
-"""Bibliothèques de médias de l'utilisateur (dossiers choisis dans Réglages) : bruitages, musiques, VFX / images.
+"""The user's media libraries (folders chosen in Settings): sound effects, music, VFX / images.
 
-- Chaque fichier est classé : musique (dossier « music / musique / bgm… » ou plus de 45 s), bruitage (son court),
-  visuel (vidéo / image). Les bruitages sont découpés au premier son et calibrés au niveau de la voix.
-- Des « sons nommés » (alias) regroupent plusieurs variantes sous un nom stable (ex. « whoosh », « impact ») : ils sont
-  dans data/library-aliases.json ; l'IA et les styles les utilisent en priorité.
-- Les ambiances / BPM des musiques viennent de data/music-meta.json s'il existe (clé = chemin du fichier)."""
+- Each file is classified: music (a "music / musique / bgm…" folder, or longer than 45 s), sound effect (short sound),
+  visual (video / image). Sound effects are trimmed to their first sound and calibrated to the voice level.
+- "Named sounds" (aliases) group several variants under a stable name (e.g. "whoosh", "impact"): they live in
+  data/library-aliases.json; the AI and the styles use them first.
+- Music moods / BPM come from data/music-meta.json if it exists (key = file path)."""
 import hashlib
 import os
 import re
@@ -34,7 +34,7 @@ def _clean(name):
 
 
 def _analyse(path, music):
-    """-> {dur, start, peak, end, gainDb} (son court) ou {dur, gainDb} (musique)"""
+    """-> {dur, start, peak, end, gainDb} (short sound) or {dur, gainDb} (music)"""
     raw = ff.run(['-v', 'error', '-i', path, '-vn', '-ac', '1', '-ar', '16000', *(['-t', '240'] if music else []), '-f', 'f32le', '-'],
                  capture_output=True).stdout
     x = np.frombuffer(raw, np.float32)
@@ -120,19 +120,22 @@ def build():
 
 
 SECTIONS = {
-    'intro / blague': ['Quirky', 'Funny', 'Happy', 'Eccentric'],
-    'discussion posée': ['Laid Back', 'Smooth', 'Dreamy', 'Happy'],
+    'intro / joke': ['Quirky', 'Funny', 'Happy', 'Eccentric'],
+    'calm talk': ['Laid Back', 'Smooth', 'Dreamy', 'Happy'],
     'action': ['Restless', 'Epic', 'Energetic', 'Running'],
-    'colère': ['Angry', 'Epic', 'Dark', 'Restless'],
+    'anger': ['Angry', 'Epic', 'Dark', 'Restless'],
     'tension': ['Suspense', 'Mysterious', 'Dark'],
-    'victoire': ['Euphoric', 'Epic', 'Happy', 'Hopeful'],
-    'tristesse': ['Sad', 'Melancholic', 'Sentimental'],
-    'fin': ['Hopeful', 'Laid Back', 'Happy'],
+    'victory': ['Euphoric', 'Epic', 'Happy', 'Hopeful'],
+    'sadness': ['Sad', 'Melancholic', 'Sentimental'],
+    'ending': ['Hopeful', 'Laid Back', 'Happy'],
 }
+# former French section names, still accepted (older conversations / prompts)
+_SECTION_ALIASES = {'intro / blague': 'intro / joke', 'discussion posée': 'calm talk', 'colère': 'anger', 'victoire': 'victory',
+                    'tristesse': 'sadness', 'fin': 'ending'}
 
 
 def get():
-    """bloquant : construit la bibliothèque si besoin"""
+    """blocking: builds the library if needed"""
     global _LIB
     with _lock:
         if _LIB is None:
@@ -167,7 +170,7 @@ def music_by_name(name):
 
 def suggest_music(mood, n=8):
     lib = _LIB or get()
-    want = SECTIONS.get(mood, [m.strip().title() for m in mood.split(',')]) if mood else []
+    want = SECTIONS.get(_SECTION_ALIASES.get(mood, mood), [m.strip().title() for m in mood.split(',')]) if mood else []
     scored = []
     for t in lib['music']:
         s = sum(3 - i * 0.5 for i, m in enumerate(want) if m in t['moods'])

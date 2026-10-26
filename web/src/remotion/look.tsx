@@ -1,5 +1,5 @@
-// Réglages d'image d'un plan / d'une incrustation : transform, opacité, fusion, recadrage, étalonnage, fond vert.
-// L'étalonnage passe par un filtre SVG (courbe + matrice de couleur) : rendu identique dans l'aperçu et l'export.
+// Picture settings of a shot / an overlay: transform, opacity, blending, crop, color grading, green screen.
+// Grading goes through an SVG filter (curve + color matrix): identical output in the preview and the export.
 import React from 'react';
 import type { ColorAdj, Look } from '../types';
 import { cssFx, needsSvgFx, PixelFilter, svgFx } from './effects';
@@ -23,7 +23,7 @@ export const BLENDS: [string, string][] = [
   ['hard-light', 'Lumière crue'], ['difference', 'Différence'], ['luminosity', 'Luminosité'],
 ];
 
-/** réglages de couleur effectifs (préréglage + ajustements par-dessus) */
+/** effective color settings (preset + adjustments on top) */
 export function colorOf(look?: Look): ColorAdj {
   const c = look?.color || {};
   const base = c.preset ? COLOR_PRESETS[c.preset]?.adj || {} : {};
@@ -54,7 +54,7 @@ function curve(c: ColorAdj): string {
   return pts.join(' ');
 }
 
-/** définitions SVG des filtres (une par plan / incrustation qui en a besoin) */
+/** SVG filter definitions (one per shot / overlay that needs it) */
 export const LookFilters: React.FC<{ looks: { id: string; look?: Look }[]; k?: number; frame?: number; w?: number; h?: number }> = ({ looks, k = 1, frame = 0, w = 1920, h = 1080 }) => {
   const used = looks.filter((l) => needsFilter(l.look));
   const pix = looks.filter((l) => (l.look?.effects || []).some((e) => e.kind === 'pixelate' && e.on !== false));
@@ -93,7 +93,7 @@ export const LookFilters: React.FC<{ looks: { id: string; look?: Look }[]; k?: n
   );
 };
 
-/** style CSS d'un calque (transform, opacité, fusion, recadrage, filtre) */
+/** CSS style of a layer (transform, opacity, blending, crop, filter) */
 export function lookStyle(id: string, look: Look | undefined, extraTransform = '', k = 1): React.CSSProperties {
   if (!look) return extraTransform ? { transform: extraTransform } : {};
   const tr = [
@@ -119,7 +119,7 @@ export const Vignette: React.FC<{ amount?: number }> = ({ amount }) =>
       background: `radial-gradient(ellipse at center, rgba(0,0,0,0) ${Math.max(20, 70 - amount * 0.4)}%, rgba(0,0,0,${Math.min(0.85, amount / 100)}) 100%)` }} />
   ) : null;
 
-/** aperçu CSS approximatif d'un préréglage (vignettes du panneau Couleur, hors composition) */
+/** approximate CSS preview of a preset (Color panel thumbnails, outside the composition) */
 export function cssPreview(adj: ColorAdj): string {
   const e = 1 + (adj.exposure || 0) / 100;
   const k = 1 + (adj.contrast || 0) / 100;

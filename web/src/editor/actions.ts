@@ -1,4 +1,4 @@
-// Actions d'édition partagées par la timeline, les moniteurs, les raccourcis clavier et le menu de l'appli de bureau.
+// Editing actions shared by the timeline, the monitors, the keyboard shortcuts and the desktop app menu.
 import { api } from '../lib/api';
 import { getFrame, getPlayer, uid, useStore } from '../lib/store';
 import type { ClipItem, CompositionProps, EffectPreset, Item, Look, OClip, Project, Track, VFxKind } from '../types';
@@ -6,6 +6,7 @@ import { fxDef, newFx } from '../remotion/effects';
 import { tx } from '../lib/i18n';
 import { frameToSrc, resolve } from '../remotion/resolve';
 import { clipAt } from './comp';
+import { pathOf } from '../lib/previews';
 
 export function currentResolved() {
   const st = useStore.getState();
@@ -24,7 +25,7 @@ export function removeItems(p: Project, ids: string[]) {
   p.music = p.music.filter((m) => left.has(m.fromItem) && left.has(m.toItem));
 }
 
-/** coupe à l'image f : le clip de piste sélectionné s'il est sous la tête, sinon le plan V1 */
+/** splits at frame f: the selected track clip if it is under the playhead, otherwise the V1 shot */
 export function splitAt(f: number): boolean {
   const st = useStore.getState();
   const p = st.project;
@@ -69,8 +70,9 @@ export function splitAt(f: number): boolean {
   return true;
 }
 
-/** supprime ce qui est sélectionné (clip de piste, sous-titre, musique, élément du montage) */
-export function deleteSelection() {
+/** deletes whatever is selected (track clip, subtitle, music, edit element) */
+/** lift = delete a V1 shot but keep its gap (the rest of the edit does not move) */
+export function deleteSelection(lift = false) {
   const st = useStore.getState();
   const s = st.sel;
   if (s.clipId) {
@@ -87,12 +89,62 @@ export function deleteSelection() {
     st.update((x) => { x.music = x.music.filter((m) => m.id !== s.musicId); }, undefined, tx('Suppression'));
   } else if (s.itemId) {
     const id = s.itemId;
-    st.update((x) => removeItems(x, [id]));
+    const ri = lift ? currentResolved()?.items.find((x) => x.id === id) : null;
+    st.update((x) => {
+      if (ri) {
+        const k = x.timeline.findIndex((i) => i.id === id);
+        const next = x.timeline[k + 1];
+        if (next) next.before = Math.round(((next.before || 0) + (x.timeline[k]?.before || 0) + ri.dur / currentFps()) * 1000) / 1000;
+      }
+      removeItems(x, [id]);
+    }, undefined, lift ? tx('Suppression (espace gardé)') : tx('Suppression'));
   } else return;
   st.select({});
 }
 
-/** colle un clip dupliqué juste après lui-même */
+const currentFps = () => useStore.getState().project?.format.fps || 30;
+
+/** Q / W: trims the start (Q) or the end (W) of the shot or clip under the playhead up to it */
+export function trimToPlayhead(side: 'start' | 'end'): boolean {
+  const st = useStore.getState();
+  const p = st.project;
+  const r = currentResolved();
+  if (!p || !r) return false;
+  const f = getFrame();
+  const t = f / r.fps;
+  // selected track clip under the playhead
+  for (const tr of p.tracks || []) {
+    const c = tr.clips.find((x) => x.id === st.sel.clipId && t > x.start + 0.05 && t < x.start + x.dur - 0.05);
+    if (!c || tr.locked) continue;
+    st.update((pp) => {
+      const x = (pp.tracks || []).flatMap((y) => y.clips).find((y) => y.id === c.id);
+      if (!x) return;
+      if (side === 'start') { const d = t - x.start; x.start = t; x.dur -= d; if (x.type !== 'text') x.in += d * ('speed' in x && x.speed ? x.speed : 1); }
+      else x.dur = t - x.start;
+    }, undefined, tx('Rognage'));
+    return true;
+  }
+  const hit = frameToSrc(r, f);
+  if (!hit) return false;
+  const it = p.timeline.find((x) => x.id === hit.itemId);
+  if (!it) return false;
+  if (it.type === 'clip') {
+    if (hit.t === null) return false;
+    st.update((pp) => {
+      const x = pp.timeline.find((y) => y.id === it.id) as ClipItem | undefined;
+      if (!x) return;
+      if (side === 'start') x.in = Math.min(x.out - 0.1, hit.t!); else x.out = Math.max(x.in + 0.1, hit.t!);
+    }, undefined, tx('Rognage'));
+  } else {
+    const ri = r.items.find((x) => x.id === it.id)!;
+    const d = side === 'start' ? (f - ri.from) / r.fps : (ri.from + ri.dur - f) / r.fps;
+    st.update((pp) => { const x = pp.timeline.find((y) => y.id === it.id); if (x && x.type !== 'clip') x.dur = Math.max(0.2, x.dur - d); }, undefined, tx('Rognage'));
+  }
+  if (side === 'start') st.seek(r.items.find((x) => x.id === it.id)!.from);
+  return true;
+}
+
+/** pastes a duplicated clip right after itself */
 export function duplicateSelection() {
   const st = useStore.getState();
   const s = st.sel;
@@ -122,7 +174,7 @@ export function addMarker() {
   st.update((x) => { (x.markers ||= []).push({ id: uid('k'), t: getFrame() / p.format.fps, label: '' }); }, undefined, tx('Marqueur'));
 }
 
-/** zoom sec sur le visage à la tête de lecture */
+/** hard zoom on the face at the playhead */
 export function zoomHere() {
   const st = useStore.getState();
   const p = st.project;
@@ -134,7 +186,7 @@ export function zoomHere() {
   st.notify(tx('Zoom posé'));
 }
 
-/** coupe précédente / suivante */
+/** previous / next edit point */
 export function jumpEdit(d: 1 | -1) {
   const st = useStore.getState();
   const r = currentResolved();
@@ -145,7 +197,7 @@ export function jumpEdit(d: 1 | -1) {
   if (t !== undefined) st.seek(t);
 }
 
-/** plan V1 depuis une source [a, b] : inséré à la tête de lecture ou ajouté à la fin */
+/** V1 shot from a source [a, b]: inserted at the playhead or appended at the end */
 export function insertSource(srcId: string, a: number, b: number, where: 'playhead' | 'end' = 'playhead') {
   const st = useStore.getState();
   const p = st.project;
@@ -166,7 +218,7 @@ export function insertSource(srcId: string, a: number, b: number, where: 'playhe
   }).catch(() => undefined);
 }
 
-/** piste d'une ligne A1 Voix / A2 Musique / A3 Bruitages (créée au besoin) */
+/** track for an A1 Voice / A2 Music / A3 Sound effects lane (created if needed) */
 export function roleTrack(p: Project, role: NonNullable<Track['role']>): Track {
   const list = p.tracks || (p.tracks = []);
   let tr = list.find((x) => x.role === role);
@@ -177,7 +229,131 @@ export function roleTrack(p: Project, role: NonNullable<Track['role']>): Track {
   return tr;
 }
 
-/** clip sur une piste libre (incrustation / titre / audio) ; crée la piste au besoin. role : ligne Voix / Musique / Bruitages */
+/** legacy "from element A to element B" music -> real audio clips on the Music lane (movable, trimmable) */
+export function migrateLegacyMusic() {
+  const st = useStore.getState();
+  const p = st.project;
+  if (!p?.music?.length || st.aiJob) return;
+  const r = currentResolved();
+  if (!r) return;
+  const byId = new Map(r.items.map((x) => [x.id, x]));
+  st.update((pp) => {
+    const tr = roleTrack(pp, 'music');
+    for (const m of pp.music) {
+      const a = byId.get(m.fromItem);
+      const b = byId.get(m.toItem);
+      if (!a || !b) continue;
+      const start = a.from / r.fps;
+      const end = Math.max((b.from + b.dur) / r.fps, start + 0.5);
+      tr.clips.push({ id: m.id, type: 'audio', name: m.name, url: m.url, path: pathOf(m.url) || undefined, start, dur: end - start, in: m.offset || 0,
+        volumeDb: (m.gainDb || 0) + (m.db ?? -15), duck: true, loop: true, fadeIn: 0.4, fadeOut: 0.8 });
+    }
+    pp.music = [];
+  }, undefined, tx('Musiques converties en clips'));
+}
+
+// ---------- linked / unlinked audio (like Premiere): unlink = the shot's audio becomes separate audio clips (A1 Voice for V1,
+// an audio track for an overlay), movable and trimmable on their own; the shot is muted. Relink = the reverse.
+export function isUnlinked(id: string): boolean {
+  const p = useStore.getState().project;
+  if (!p) return false;
+  const it = p.timeline.find((x) => x.id === id);
+  if (it && 'audioOff' in it && it.audioOff) return true;
+  return (p.tracks || []).some((tr) => tr.clips.some((c) => c.type === 'audio' && c.link === id));
+}
+
+export function unlinkAudio(ref: { kind: 'item' | 'clip'; id: string }): boolean {
+  const st = useStore.getState();
+  const p = st.project;
+  const r = currentResolved();
+  if (!p || !r || isUnlinked(ref.id)) return false;
+  const made: OClip[] = [];
+  let trackId = '';
+  if (ref.kind === 'item') {
+    const it = p.timeline.find((x) => x.id === ref.id);
+    const ri = r.items.find((x) => x.id === ref.id);
+    if (!it || !ri) return false;
+    if (it.type === 'clip') {
+      const src = p.sources.find((x) => x.id === it.src);
+      if (!src || (src.kind !== 'audio' && src.hasAudio === false)) return false;
+      ri.segs.forEach((sg, k) => made.push({ id: uid('o'), type: 'audio', name: it.label || src.name, src: it.src, in: sg.a, start: sg.from / r.fps, dur: sg.dur / r.fps,
+        speed: sg.rate, volumeDb: it.volumeDb || 0, link: it.id, fadeIn: k === 0 ? it.fadeIn : undefined, fadeOut: k === ri.segs.length - 1 ? it.fadeOut : undefined }));
+    } else if (it.type === 'card' || it.type === 'freeze') {
+      // card / freeze-frame sounds (style sounds, added sounds, transition whoosh) -> separate clips on A3
+      const mixDb = r.mix.sfxDb || 0;
+      for (const ev of r.sfx.filter((x) => x.key.startsWith(`${it.id}:`))) {
+        made.push({ id: uid('o'), type: 'audio', name: ev.name, url: ev.url, path: pathOf(ev.url) || undefined, in: ev.trim, start: ev.from / r.fps,
+          dur: ev.dur / r.fps, volumeDb: Math.round((20 * Math.log10(Math.max(1e-4, ev.volume)) - mixDb) * 10) / 10, link: it.id });
+      }
+    } else if (it.type === 'media' && it.kind === 'video') {
+      made.push({ id: uid('o'), type: 'audio', name: it.path.split(/[\\/]/).pop(), path: it.path, url: it.url, in: 0, start: ri.from / r.fps, dur: ri.dur / r.fps,
+        volumeDb: it.volumeDb || 0, link: it.id });
+    }
+    if (!made.length) return false;
+    const sounds = it.type === 'card' || it.type === 'freeze';
+    st.update((pp) => {
+      const tr = roleTrack(pp, sounds ? 'sfx' : 'voice');
+      tr.clips.push(...made);
+      trackId = tr.id;
+      const x = pp.timeline.find((y) => y.id === ref.id);
+      if (x) x.audioOff = true;
+    }, undefined, sounds ? tx('Sons déliés') : tx('Audio délié'));
+  } else {
+    const tr0 = (p.tracks || []).find((t) => t.clips.some((c) => c.id === ref.id));
+    const c = tr0?.clips.find((x) => x.id === ref.id);
+    if (!c || c.type !== 'video' || c.kind !== 'video' || c.muted) return false;
+    const src = c.src ? p.sources.find((x) => x.id === c.src) : undefined;
+    if (src && src.hasAudio === false) return false;
+    made.push({ id: uid('o'), type: 'audio', name: c.name || src?.name, src: c.src, path: c.path, url: c.url, in: c.in, start: c.start, dur: c.dur, speed: c.speed,
+      volumeDb: c.volumeDb || 0, link: c.id, fadeIn: c.fadeIn, fadeOut: c.fadeOut });
+    st.update((pp) => {
+      const list = pp.tracks || (pp.tracks = []);
+      let tr = list.find((t) => t.kind === 'audio' && !t.role && !t.locked && !t.clips.some((x) => x.start < c.start + c.dur && x.start + x.dur > c.start));
+      if (!tr) { tr = { id: uid('t'), kind: 'audio', name: `${tx('Audio')} ${list.filter((t) => t.kind === 'audio' && !t.role).length + 4}`, clips: [] }; list.push(tr); }
+      tr.clips.push(...made);
+      trackId = tr.id;
+      const x = list.flatMap((t) => t.clips).find((y) => y.id === c.id);
+      if (x && x.type === 'video') x.muted = true;
+    }, undefined, tx('Audio délié'));
+  }
+  st.select({ clipId: made[0].id, trackId });
+  return true;
+}
+
+/** id = V1 shot or video clip whose audio had been unlinked */
+export function relinkAudio(id: string) {
+  const st = useStore.getState();
+  st.update((pp) => {
+    for (const tr of pp.tracks || []) tr.clips = tr.clips.filter((c) => !(c.type === 'audio' && c.link === id));
+    const it = pp.timeline.find((y) => y.id === id);
+    if (it && 'audioOff' in it) delete it.audioOff;
+    const v = (pp.tracks || []).flatMap((t) => t.clips).find((y) => y.id === id);
+    if (v && v.type === 'video') v.muted = false;
+  }, undefined, tx('Audio rattaché'));
+  const it = st.project?.timeline.find((x) => x.id === id);
+  st.select(it ? { itemId: id } : { clipId: id });
+}
+
+/** ⌘L: unlinks or relinks the selection's audio */
+export function toggleLink(): boolean {
+  const st = useStore.getState();
+  const s = st.sel;
+  const p = st.project;
+  if (!p) return false;
+  if (s.clipId) {
+    const c = (p.tracks || []).flatMap((t) => t.clips).find((x) => x.id === s.clipId);
+    if (c?.type === 'audio' && c.link) { relinkAudio(c.link); return true; }
+    if (c && isUnlinked(c.id)) { relinkAudio(c.id); return true; }
+    return c ? unlinkAudio({ kind: 'clip', id: c.id }) : false;
+  }
+  if (s.itemId) {
+    if (isUnlinked(s.itemId)) { relinkAudio(s.itemId); return true; }
+    return unlinkAudio({ kind: 'item', id: s.itemId });
+  }
+  return false;
+}
+
+/** clip on a free track (overlay / title / audio); creates the track if needed. role: Voice / Music / Sound effects lane */
 export function addToTrack(kind: Track['kind'], clip: OClip, trackId?: string | null, role?: Track['role']) {
   const st = useStore.getState();
   let tid = '';
@@ -195,7 +371,7 @@ export function addToTrack(kind: Track['kind'], clip: OClip, trackId?: string | 
   st.select({ clipId: clip.id, trackId: tid });
 }
 
-/** source en incrustation (ou piste audio) à la tête de lecture */
+/** source as an overlay (or audio track) at the playhead */
 export function overlaySource(srcId: string, a: number, b: number) {
   const st = useStore.getState();
   const p = st.project;
@@ -220,10 +396,10 @@ export async function startExport(preset: string) {
 
 export const togglePlay = () => getPlayer()?.toggle();
 
-// ---------------------------------------------------------------- effets d'image
+// ---------------------------------------------------------------- picture effects
 export type TargetRef = { kind: 'item'; id: string } | { kind: 'clip'; id: string };
 
-/** cible des effets : sélection, sinon élément du montage sous la tête de lecture */
+/** effect target: the selection, otherwise the edit element under the playhead */
 export function effectTarget(): TargetRef | null {
   const st = useStore.getState();
   const p = st.project;
@@ -269,7 +445,7 @@ export function applyPreset(pr: EffectPreset, ref: TargetRef | null = effectTarg
   st.select(ref.kind === 'item' ? { itemId: ref.id } : { clipId: ref.id });
 }
 
-/** enregistre les réglages d'image d'un élément comme « mon effet » */
+/** saves an element's picture settings as "my effect" */
 export async function savePreset(look: Look) {
   const st = useStore.getState();
   const name = prompt(tx('Nom de l’effet'));
@@ -288,7 +464,7 @@ export async function savePreset(look: Look) {
   } catch (e) { st.notify((e as Error).message); }
 }
 
-// ---------------------------------------------------------------- presse-papiers (⌘C / ⌘X / ⌘V)
+// ---------------------------------------------------------------- clipboard (⌘C / ⌘X / ⌘V)
 let clipboard: { kind: 'clip'; clip: OClip; trackKind: Track['kind']; role?: Track['role'] } | { kind: 'item'; item: Item } | null = null;
 
 export function copySelection(cut = false) {
@@ -309,7 +485,7 @@ export function copySelection(cut = false) {
   return true;
 }
 
-/** colle à la tête de lecture : clip de piste à cet instant (même piste), élément du montage à cet endroit */
+/** pastes at the playhead: track clip at that time (same track), edit element at that position */
 export function pasteAtPlayhead() {
   const st = useStore.getState();
   const p = st.project;

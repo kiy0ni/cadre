@@ -1,7 +1,7 @@
-// Effets d'image généraux (catalogue, paramètres, rendu). Même code pour l'aperçu et l'export.
-// - filtres SVG (netteté, lueur, grain, pixellisation, aberration chromatique) ajoutés au filtre du calque (look.tsx) ;
-// - filtres CSS (flou, N&B, sépia, négatif, teinte, ombre portée) ;
-// - habillage (bandes cinéma, coins arrondis, bordure) et animation (mouvement à deux images clés, fondus).
+// General picture effects (catalog, parameters, rendering). Same code for the preview and the export.
+// - SVG filters (sharpen, glow, grain, pixelate, chromatic aberration) appended to the layer filter (look.tsx);
+// - CSS filters (blur, B&W, sepia, invert, hue, drop shadow);
+// - framing (letterbox bars, rounded corners, border) and animation (two-keyframe motion, fades).
 import React from 'react';
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import type { Look, VFx, VFxKind } from '../types';
@@ -50,7 +50,7 @@ export const active = (look?: Look) => (look?.effects || []).filter((e) => e.on 
 const SVG_KINDS: VFxKind[] = ['sharpen', 'glow', 'grain', 'rgbsplit'];
 export const needsSvgFx = (look?: Look) => active(look).some((e) => SVG_KINDS.includes(e.kind));
 
-/** primitives SVG ajoutées à la fin du filtre du calque (entrée : résultat précédent « cur ») */
+/** SVG primitives appended to the end of the layer filter (input: previous result "cur") */
 export function svgFx(look: Look | undefined, k: number, frame: number): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let cur = 'col';
@@ -85,8 +85,8 @@ export function svgFx(look: Look | undefined, k: number, frame: number): React.R
   return out;
 }
 
-/** pixellisation : filtre à part, en unités relatives au calque (Chrome casse les sous-régions en pixels dès que
- *  le calque est redimensionné : aperçu mis à l'échelle, incrustation réduite…). Le calque fait w × h. */
+/** pixelate: separate filter, in units relative to the layer (Chrome breaks pixel-based subregions as soon as
+ *  the layer is resized: scaled preview, shrunk overlay…). The layer is w × h. */
 export function PixelFilter({ id, look, w, h, k }: { id: string; look?: Look; w: number; h: number; k: number }) {
   const e = active(look).find((x) => x.kind === 'pixelate');
   if (!e) return null;
@@ -103,7 +103,7 @@ export function PixelFilter({ id, look, w, h, k }: { id: string; look?: Look; w:
   );
 }
 
-/** filtres CSS ajoutés au calque */
+/** CSS filters added to the layer */
 export function cssFx(look: Look | undefined, k: number, id = ''): string {
   return active(look).map((e) => {
     switch (e.kind) {
@@ -123,7 +123,7 @@ const EASE: Record<string, (t: number) => number> = {
   douce: Easing.inOut(Easing.cubic), lineaire: (t) => t, entree: Easing.in(Easing.cubic), sortie: Easing.out(Easing.cubic),
 };
 
-/** animation, fondus et habillage d'un calque. start = image (locale) où l'élément commence, dur = sa durée. */
+/** animation, fades and framing of a layer. start = (local) frame where the element starts, dur = its duration. */
 export const FxLayer: React.FC<{ look?: Look; start: number; dur: number; bars?: boolean; children: React.ReactNode }> = ({ look, start, dur, bars = true, children }) => {
   const f = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -176,7 +176,7 @@ export const newFx = (kind: VFxKind, p?: Record<string, number | string>): VFx =
 
 export const hasLetterbox = (look?: Look) => active(look).some((e) => e.kind === 'letterbox');
 
-/** bandes cinéma d'un plan du montage principal, posées au-dessus des zooms de caméra */
+/** letterbox bars of a main-edit shot, laid on top of the camera zooms */
 export const LetterboxBars: React.FC<{ look?: Look }> = ({ look }) => {
   const { width, height } = useVideoConfig();
   const e = active(look).find((x) => x.kind === 'letterbox');

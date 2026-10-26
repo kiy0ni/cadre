@@ -8,3 +8,6 @@ desktop/out/
 desktop/stage/
 desktop/app-path.json
 .DS_Store
+*.tsbuildinfo
+.env
+.env.*

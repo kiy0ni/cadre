@@ -1,14 +1,14 @@
 {
  "id": "youtube",
- "name": "YouTube dynamique",
- "description": "Vlog, gaming, réaction : coupes serrées, sous-titres, zooms et bruitages pour garder l’attention.",
+ "name": "Dynamic YouTube",
+ "description": "Vlog, gaming, reaction: tight cuts, subtitles, zooms and sound effects to hold attention.",
  "format": {
   "width": 1920,
   "height": 1080,
   "fps": 30
  },
- "structure": "accroche (le meilleur moment, 10-20 s) → titre → parties chronologiques → conclusion",
- "rules": "# YouTube dynamique\n- Commencer par une accroche : le moment le plus fort ou la promesse de la vidéo, en 10 à 20 s. Pas d'intro lente.\n- Garder l'histoire : passages entiers avec leur contexte, dans l'ordre. Couper tout ce qui ne fait pas avancer ou rire.\n- Rythme : silences coupés, une relance visuelle toutes les 5 à 10 s (zoom, texte, bruitage, changement de plan).\n- Zooms secs sur les réactions fortes, bruitages courts et synchronisés sur les événements, pas de spam.\n- Musique de fond adaptée à chaque partie, changée quand l'ambiance change.\n- Sous-titres en groupes de sens courts, jamais avant la parole.\n- Chapitres YouTube sur le premier plan de chaque partie.",
+ "structure": "hook (the best moment, 10-20 s) → title → chronological sections → conclusion",
+ "rules": "# Dynamic YouTube\n- Open with a hook: the strongest moment or the video's promise, in 10 to 20 s. No slow intro.\n- Keep the story: whole passages with their context, in order. Cut everything that doesn't move things forward or get a laugh.\n- Pacing: silences cut, a visual change every 5 to 10 s (zoom, text, sound effect, shot change).\n- Snappy zooms on strong reactions, short sound effects synced to events, no spamming.\n- Background music matched to each section, changed when the mood changes.\n- Subtitles in short meaningful groups, never before the speech.\n- YouTube chapters on the first shot of each section.",
  "style": {
   "captions": {
    "font": "Montserrat",
@@ -68,7 +68,7 @@
  "speakers": [],
  "defaultSpeaker": null,
  "whisper": {
-  "language": "fr",
+  "language": "",
   "prompt": ""
  }
 }

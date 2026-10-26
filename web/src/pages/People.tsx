@@ -1,4 +1,4 @@
-// Personnes : qui parle dans les vidéos (couleur de sous-titres, consignes de montage, empreinte vocale pour la reconnaissance).
+// People: who speaks in the videos (subtitle color, editing instructions, voiceprint for recognition).
 import { useEffect, useRef, useState } from 'react';
 import { api, followJob } from '../lib/api';
 import { Icon } from '../lib/icons';

@@ -1,5 +1,5 @@
-// Styles de montage : ce que l'IA doit faire (règles écrites) et les réglages par défaut (sous-titres, rythme, cadrage, son).
-// Un style se crée en le décrivant (ou d'après une vidéo de référence) : l'IA écrit les règles et règle les valeurs.
+// Editing styles: what the AI should do (written rules) and the default settings (subtitles, pacing, framing, sound).
+// A style is created by describing it (or from a reference video): the AI writes the rules and sets the values.
 import { useEffect, useState } from 'react';
 import { api, followJob } from '../lib/api';
 import { Icon } from '../lib/icons';

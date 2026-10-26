@@ -1,4 +1,4 @@
-// Connexion pour l'accès à distance (navigateur d'un autre appareil). Sur le Mac lui-même, aucun mot de passe.
+// Sign-in for remote access (browser on another device). On the Mac itself, no password is needed.
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { Logo } from '../lib/icons';

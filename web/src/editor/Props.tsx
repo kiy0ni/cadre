@@ -1,5 +1,5 @@
-// Panneau Propriétés (façon « Effect Controls ») : réglages de l'élément sélectionné, en groupes repliables.
-// Sans sélection : réglages du projet (style, consignes pour l'IA, personnes, mixage, glossaire).
+// Properties panel (in the style of "Effect Controls"): settings of the selected element, in collapsible groups.
+// With no selection: project settings (style, AI instructions, people, mix, glossary).
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { fmt } from '../lib/format';
@@ -16,6 +16,7 @@ import { FX_CATS, FX_DEFS, fxDef, newFx } from '../remotion/effects';
 import type { VFx } from '../types';
 import { Dropdown } from '../lib/ui';
 import { tx } from '../lib/i18n';
+import { desktop } from '../lib/desktop';
 import { FONTS } from '../remotion/fonts';
 
 export type Ref = { kind: 'item'; id: string } | { kind: 'clip'; id: string };
@@ -52,17 +53,26 @@ export function PropsPanel() {
   return <ProjectProps />;
 }
 
-function Head({ title, sub }: { title: string; sub?: string }) {
+const BLEND_LABELS: Record<string, () => string> = {
+  normal: () => tx('Normal'), multiply: () => tx('Produit'), screen: () => tx('Superposition (écran)'), overlay: () => tx('Incrustation'),
+  darken: () => tx('Obscurcir'), lighten: () => tx('Éclaircir'), 'color-dodge': () => tx('Densité couleur −'), 'soft-light': () => tx('Lumière tamisée'),
+  'hard-light': () => tx('Lumière crue'), difference: () => tx('Différence'), luminosity: () => tx('Luminosité'),
+};
+
+function Head({ title, sub, note }: { title: string; sub?: string; note?: string }) {
   return (
+    <>
     <div className="toolbar" style={{ gap: 6 }}>
       <b className="ellipsis grow" style={{ paddingLeft: 4 }}>{title}{sub ? <span className="dim" style={{ fontWeight: 400 }}> · {sub}</span> : null}</b>
       <button className="btn icon sm ghost" onClick={duplicateSelection} title={tx('Dupliquer (⌘D)')}><Icon name="copy" size={13} /></button>
-      <button className="btn icon sm ghost" onClick={deleteSelection} title={tx('Supprimer (Suppr)')}><Icon name="trash" size={13} /></button>
+      <button className="btn icon sm ghost" onClick={() => deleteSelection()} title={tx('Supprimer (Suppr)')}><Icon name="trash" size={13} /></button>
     </div>
+    {note ? <div className="ai-note"><Icon name="wand" size={12} /><span><b>{tx('Choix de l’IA')} :</b> {note}</span></div> : null}
+    </>
   );
 }
 
-// ---------------------------------------------------------------- groupes communs
+// ---------------------------------------------------------------- shared groups
 export function MotionGroups({ id, look, patch, crop = true, chroma = false }: { id: string; look: Look; patch: Patch; crop?: boolean; chroma?: boolean }) {
   const L = (fn: (l: Look) => void, f: string) => patch((t) => { const tt = t as { look?: Look }; tt.look = tt.look || {}; fn(tt.look); }, `look:${f}`);
   const c = look.crop || { l: 0, t: 0, r: 0, b: 0 };
@@ -82,7 +92,7 @@ export function MotionGroups({ id, look, patch, crop = true, chroma = false }: {
         <Prop label={tx('Opacité')} value={Math.round((look.opacity ?? 1) * 100)} min={0} max={100} def={100} unit="%" onChange={(v) => L((l) => { l.opacity = v / 100; }, 'op')} />
         <Row label={tx('Fusion')}>
           <select className="input" value={look.blend || 'normal'} onChange={(e) => L((l) => { l.blend = e.target.value; }, 'blend')}>
-            {BLENDS.map(([v, n]) => <option key={v} value={v}>{tx(n)}</option>)}
+            {BLENDS.map(([v, n]) => <option key={v} value={v}>{BLEND_LABELS[v]?.() || n}</option>)}
           </select>
         </Row>
       </Group>
@@ -134,7 +144,7 @@ export function ColorControls({ look, patch, thumb, closed }: { look: Look; patc
   );
 }
 
-// ---------------------------------------------------------------- élément du montage principal (V1)
+// ---------------------------------------------------------------- main edit element (V1)
 function ItemProps({ item }: { item: Item }) {
   const { props, r } = useComp();
   const frame = useStore((s) => s.frame);
@@ -148,7 +158,7 @@ function ItemProps({ item }: { item: Item }) {
   const names = { clip: tx('Plan'), card: tx('Carton'), freeze: tx('Arrêt sur image'), media: tx('Média') };
   return (
     <>
-      <Head title={`${names[item.type]} ${i + 1}`} sub={src?.name} />
+      <Head title={`${names[item.type]} ${i + 1}`} sub={src?.name} note={item.note} />
       <div className="pbody">
         {item.type === 'clip' ? <ClipGroups clip={item} /> : item.type === 'card' ? <CardGroup card={item} /> : item.type === 'freeze' ? <FreezeGroup fz={item} /> : <MediaGroup m={item} />}
         {item.type !== 'card' ? (
@@ -322,7 +332,7 @@ function CaptionsGroup({ clip }: { clip: ClipItem }) {
   const regen = async () => {
     const caps = await api.autoCaptions(props.project.id, { src: clip.src, in: clip.in, out: clip.out });
     P((c) => { c.captions = caps; });
-    notify(`${caps.length} sous-titres recréés`);
+    notify(tx('{0} sous-titres recréés', caps.length));
   };
   const addCap = () => {
     const t = here ?? clip.in;
@@ -362,6 +372,51 @@ function CaptionsGroup({ clip }: { clip: ClipItem }) {
   );
 }
 
+/** image of a card (logo…): project images, library visuals, or a new file imported into the project */
+function ImagePicker({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const project = useStore((s) => s.project);
+  const library = useStore((s) => s.library);
+  const refresh = useStore((s) => s.refreshSources);
+  const notify = useStore((s) => s.notify);
+  const file = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  if (!project) return null;
+  const isImg = (p: string) => /\.(png|jpe?g|webp|gif|svg)$/i.test(p);
+  const srcs = project.sources.filter((s) => s.kind === 'image');
+  const lib = (library?.vfx || []).filter((v) => isImg(v.path || v.url));
+  const adopt = async (before: Set<string>) => {
+    await refresh();
+    const added = useStore.getState().project?.sources.find((s) => s.kind === 'image' && !before.has(s.id));
+    if (added) onChange(added.url);
+  };
+  const importFile = async (f?: File) => {
+    const before = new Set(project.sources.map((s) => s.id));
+    setBusy(true);
+    try {
+      const d = desktop();
+      if (d && !f) { const paths = await d.pickFiles({ images: true }); if (!paths.length) return; await api.addSource(project.id, { paths: paths.slice(0, 1) }); }
+      else if (f) await api.upload(project.id, f);
+      else { file.current?.click(); return; }
+      await adopt(before);
+    } catch (e) { notify((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="col" style={{ gap: 6, minWidth: 0 }}>
+      <div className="row" style={{ gap: 6 }}>
+        {value ? <img src={value} alt="" style={{ width: 44, height: 28, objectFit: 'contain', background: 'var(--panel-3)', borderRadius: 3, flex: 'none' }} /> : null}
+        <select className="input grow" style={{ minWidth: 0 }} value={value} onChange={(e) => onChange(e.target.value)}>
+          <option value="">{tx('Aucune')}</option>
+          {value && ![...srcs.map((s) => s.url), ...lib.map((v) => v.url)].includes(value) ? <option value={value}>{tx('Image actuelle')}</option> : null}
+          {srcs.length ? <optgroup label={tx('Projet')}>{srcs.map((s) => <option key={s.id} value={s.url}>{s.name}</option>)}</optgroup> : null}
+          {lib.length ? <optgroup label={tx('Bibliothèque')}>{lib.map((v) => <option key={v.url} value={v.url}>{v.name}</option>)}</optgroup> : null}
+        </select>
+        <button className="btn sm" disabled={busy} onClick={() => importFile()} title={tx('Importer une image (logo…)')}><Icon name="import" size={12} /></button>
+      </div>
+      <input ref={file} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importFile(f); }} />
+    </div>
+  );
+}
+
 function CardGroup({ card }: { card: CardItem }) {
   const library = useStore((s) => s.library);
   const patch = usePatch({ kind: 'item', id: card.id });
@@ -371,8 +426,12 @@ function CardGroup({ card }: { card: CardItem }) {
       <Row label={tx('Style')}>
         <select className="input" value={card.style} onChange={(e) => P((c) => { c.style = e.target.value as CardItem['style']; })}>
           <option value="title">{tx('Titre')}</option><option value="chapter">{tx('Chapitre')}</option><option value="narr">{tx('Texte')}</option>
-          {card.style === 'logo' || card.style === 'twitch' ? <option value={card.style}>{tx('Ancien style')}</option> : null}
+          <option value="logo">{tx('Image / logo')}</option>
+          {card.style === 'twitch' ? <option value={card.style}>{tx('Ancien style')}</option> : null}
         </select>
+      </Row>
+      <Row label={card.style === 'logo' ? tx('Logo / image') : tx('Image')}>
+        <ImagePicker value={card.image || ''} onChange={(url) => P((c) => { c.image = url || null; })} />
       </Row>
       <BigText title={tx('Texte du carton')} value={card.text} onChange={(v) => P((c) => { c.text = v; }, 'text')} placeholder={tx('Texte (*mot* en couleur)')} />
       <Row label={tx('Sous-texte')}><input className="input" value={card.sub || ''} onChange={(e) => P((c) => { c.sub = e.target.value; }, 'sub')} /></Row>
@@ -440,7 +499,7 @@ function MediaGroup({ m }: { m: MediaItem }) {
   );
 }
 
-// ---------------------------------------------------------------- clip de piste libre
+// ---------------------------------------------------------------- free track clip
 function ClipProps({ clip, trackName }: { clip: OClip; trackName: string }) {
   const { props } = useComp();
   const patch = usePatch({ kind: 'clip', id: clip.id });
@@ -450,7 +509,7 @@ function ClipProps({ clip, trackName }: { clip: OClip; trackName: string }) {
   const title = clip.type === 'text' ? clip.text.split('\n')[0] : clip.name || (path || '').split(/[\\/]/).pop() || tx('Clip');
   return (
     <>
-      <Head title={title} sub={trackName} />
+      <Head title={title} sub={trackName} note={clip.note} />
       <div className="pbody">
         <Group title={tx('Placement')}>
           <Row label={tx('Début / durée')}>
@@ -523,7 +582,7 @@ function TextGroups({ clip }: { clip: OText }) {
   );
 }
 
-// ---------------------------------------------------------------- musique de fond
+// ---------------------------------------------------------------- background music
 function MusicProps({ id }: { id: string }) {
   const { props } = useComp();
   const update = useStore((s) => s.update);
@@ -553,7 +612,7 @@ function MusicProps({ id }: { id: string }) {
   );
 }
 
-// ---------------------------------------------------------------- projet (rien de sélectionné)
+// ---------------------------------------------------------------- project (nothing selected)
 const SEQ_FORMATS: [string, string][] = [
   ['1920x1080', '16:9 · 1920×1080'], ['3840x2160', '16:9 · 3840×2160'], ['1280x720', '16:9 · 1280×720'], ['1080x1920', '9:16 · 1080×1920'],
   ['1080x1080', '1:1 · 1080×1080'], ['1080x1350', '4:5 · 1080×1350'], ['1440x1080', '4:3 · 1440×1080'], ['2048x858', '2.39:1 · 2048×858'],
@@ -645,7 +704,7 @@ function ProjectProps() {
   );
 }
 
-/** cible des réglages de couleur : sélection, sinon plan sous la tête de lecture */
+/** target of the color settings: the selection, otherwise the shot under the playhead */
 export function colorTarget(p: Project, sel: { itemId?: string; clipId?: string }, r: ReturnType<typeof useComp>['r']): Ref | null {
   if (sel.clipId) return { kind: 'clip', id: sel.clipId };
   if (sel.itemId) return { kind: 'item', id: sel.itemId };
@@ -653,7 +712,7 @@ export function colorTarget(p: Project, sel: { itemId?: string; clipId?: string 
   return at ? { kind: 'item', id: at.clip.id } : null;
 }
 
-// ---------------------------------------------------------------- effets d'image empilés
+// ---------------------------------------------------------------- stacked picture effects
 export function EffectsGroup({ look, patch }: { look: Look; patch: Patch }) {
   const list = look.effects || [];
   const E = (fn: (fx: VFx[]) => void, merge?: string) => patch((t) => { const tt = t as { look?: Look }; tt.look = tt.look || {}; tt.look.effects = [...(tt.look.effects || [])]; fn(tt.look.effects); }, merge);

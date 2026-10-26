@@ -1,11 +1,11 @@
-// Contrôles partagés : ligne de propriété (curseur + valeur), groupe repliable, saisie de temps, fenêtre modale, menu.
+// Shared controls: property row (slider + value), collapsible group, time input, modal, menu.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { fmt, parseTime } from './format';
 import { Icon } from './icons';
 import { tx } from './i18n';
 
-/** ligne « Effect Controls » : libellé, curseur, valeur. La valeur se règle en glissant dessus (⇧ : ×10, ⌥ : fin),
- *  un clic permet de la taper ; double-clic sur le libellé : valeur par défaut ; ↑ ↓ au clavier. */
+/** "Effect Controls" row: label, slider, value. Drag the value to adjust it (⇧: ×10, ⌥: fine),
+ *  click to type it; double-click the label: default value; ↑ ↓ on the keyboard. */
 export function Prop({ label, value, min, max, step = 1, def = 0, unit = '', onChange, disabled }: {
   label: string; value: number; min: number; max: number; step?: number; def?: number; unit?: string; onChange: (v: number) => void; disabled?: boolean;
 }) {
@@ -25,7 +25,7 @@ export function Prop({ label, value, min, max, step = 1, def = 0, unit = '', onC
       document.body.style.cursor = 'ew-resize';
       const k = ev.shiftKey ? 10 : ev.altKey ? 0.1 : 1;
       const range = (max - min) || 1;
-      const per = range / 250;                          // ~250 px pour toute la plage
+      const per = range / 250;                          // ~250 px for the full range
       onChange(clamp(v0 + (dx * per * k)));
     };
     const up = () => {
@@ -37,7 +37,7 @@ export function Prop({ label, value, min, max, step = 1, def = 0, unit = '', onC
   };
   return (
     <div className="prop" style={disabled ? { opacity: 0.45, pointerEvents: 'none' } : undefined}>
-      <span className="ellipsis" onDoubleClick={() => onChange(def)} title={`${label} — double-clic : valeur par défaut (${def}${unit})`}>{label}</span>
+      <span className="ellipsis" onDoubleClick={() => onChange(def)} title={`${label} — ${tx('double-clic : valeur par défaut ({0})', `${def}${unit}`)}`}>{label}</span>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} onDoubleClick={() => onChange(def)} />
       <input ref={ref} className="num" value={txt ?? `${shown}${unit}`} title={tx('Glisser pour régler · clic pour taper')}
         onPointerDown={scrub}
@@ -53,7 +53,7 @@ export function Prop({ label, value, min, max, step = 1, def = 0, unit = '', onC
   );
 }
 
-/** zone de texte qui grandit avec son contenu, avec un bouton pour l'ouvrir en grand */
+/** text area that grows with its content, with a button to open it full size */
 export function BigText({ value, onChange, placeholder, title = tx('Texte'), mono, minHeight }: {
   value: string; onChange: (v: string) => void; placeholder?: string; title?: string; mono?: boolean; minHeight?: number;
 }) {
@@ -71,27 +71,27 @@ export function BigText({ value, onChange, placeholder, title = tx('Texte'), mon
   );
 }
 
-/** taille de l'interface (appli de bureau : zoom de la fenêtre ; navigateur : zoom CSS) */
+/** UI scale (desktop app: window zoom; browser: CSS zoom) */
 export function applyUiScale(f?: number) {
   let v = f;
   if (v === undefined) { try { v = Number(localStorage.getItem('cadre-ui-scale')) || 1; } catch { v = 1; } }
-  try { localStorage.setItem('cadre-ui-scale', String(v)); } catch { /* stockage indisponible */ }
+  try { localStorage.setItem('cadre-ui-scale', String(v)); } catch { /* storage unavailable */ }
   const d = (window as unknown as { cadre?: { setZoom?: (z: number) => void } }).cadre;
   if (d?.setZoom) d.setZoom(v);
   else (document.documentElement.style as CSSStyleDeclaration & { zoom: string }).zoom = v === 1 ? '' : String(v);
   return v;
 }
 
-/** ligne libre : libellé + contrôle */
+/** free-form row: label + control */
 export function Row({ label, children }: { label: string; children: ReactNode }) {
   return <div className="prop"><span className="ellipsis">{label}</span><div className="row" style={{ gridColumn: 'span 2', gap: 6, minWidth: 0 }}>{children}</div></div>;
 }
 
-/** groupe repliable (état mémorisé par titre) */
+/** collapsible group (state remembered per title) */
 export function Group({ title, children, right, closed: closedDefault = false }: { title: string; children: ReactNode; right?: ReactNode; closed?: boolean }) {
   const key = `cadre-grp-${title}`;
   const [closed, setClosed] = useState(() => { try { const v = localStorage.getItem(key); return v === null ? closedDefault : v === '1'; } catch { return closedDefault; } });
-  const toggle = () => { setClosed(!closed); try { localStorage.setItem(key, closed ? '0' : '1'); } catch { /* stockage indisponible */ } };
+  const toggle = () => { setClosed(!closed); try { localStorage.setItem(key, closed ? '0' : '1'); } catch { /* storage unavailable */ } };
   return (
     <div className="prop-group">
       <div className={`prop-head ${closed ? 'closed' : ''}`} onClick={toggle}>
@@ -104,7 +104,7 @@ export function Group({ title, children, right, closed: closedDefault = false }:
   );
 }
 
-/** saisie d'un temps « m:ss.cc » */
+/** "m:ss.cc" time input */
 export function TimeInput({ value, onChange, width = 84 }: { value: number; onChange: (v: number) => void; width?: number }) {
   const [txt, setTxt] = useState<string | null>(null);
   return (
@@ -136,7 +136,7 @@ export function Modal({ title, onClose, children, foot, wide, huge }: { title: s
   );
 }
 
-/** menu déroulant ancré à un bouton ; se ferme au clic extérieur */
+/** dropdown menu anchored to a button; closes on outside click */
 export function Dropdown({ button, children, align = 'left', width }: { button: (open: boolean, toggle: () => void) => ReactNode; children: (close: () => void) => ReactNode; align?: 'left' | 'right'; width?: number }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -154,7 +154,7 @@ export function Dropdown({ button, children, align = 'left', width }: { button: 
   );
 }
 
-/** largeur / hauteur de panneau redimensionnable, mémorisée */
+/** resizable panel width / height, remembered */
 export function useSize(key: string, def: number, min: number, max: () => number) {
   const [v, setV] = useState(() => { try { return Number(localStorage.getItem(`cadre-size-${key}`)) || def; } catch { return def; } });
   const start = (e: React.PointerEvent, axis: 'x' | 'y', sign: 1 | -1) => {
@@ -166,7 +166,7 @@ export function useSize(key: string, def: number, min: number, max: () => number
     const up = () => {
       window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
       document.body.style.cursor = '';
-      try { localStorage.setItem(`cadre-size-${key}`, String(Math.round(last))); } catch { /* stockage indisponible */ }
+      try { localStorage.setItem(`cadre-size-${key}`, String(Math.round(last))); } catch { /* storage unavailable */ }
     };
     document.body.style.cursor = axis === 'x' ? 'col-resize' : 'row-resize';
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
@@ -186,11 +186,11 @@ export function useIsMobile() {
   return m;
 }
 
-// ---------------------------------------------------------------- menu contextuel (clic droit)
+// ---------------------------------------------------------------- context menu (right click)
 export type MenuItem = { label: string; icon?: string; keys?: string; onClick: () => void; disabled?: boolean; danger?: boolean } | 'sep';
 let openFn: ((m: { x: number; y: number; items: MenuItem[] } | null) => void) | null = null;
 
-/** ouvre un menu contextuel à la position de la souris */
+/** opens a context menu at the mouse position */
 export function contextMenu(e: { clientX: number; clientY: number; preventDefault: () => void; stopPropagation: () => void }, items: MenuItem[]) {
   e.preventDefault();
   e.stopPropagation();
@@ -212,14 +212,14 @@ export function ContextMenuHost() {
   }, [m]);
   if (!m) return null;
   const h = m.items.length * 30 + 10;
-  const x = Math.min(m.x, window.innerWidth - 250), y = Math.min(m.y, window.innerHeight - h - 8);
+  const x = Math.min(m.x, window.innerWidth - 290), y = Math.min(m.y, window.innerHeight - h - 8);
   return (
-    <div ref={ref} className="menu ctx" style={{ position: 'fixed', left: x, top: y, width: 240 }}>
+    <div ref={ref} className="menu ctx" style={{ position: 'fixed', left: x, top: y, width: 280 }}>
       {m.items.map((it, i) => it === 'sep' ? <hr key={i} /> : (
         <button key={i} disabled={it.disabled} className={it.danger ? 'danger' : ''} onClick={() => { setM(null); it.onClick(); }}>
           {it.icon ? <Icon name={it.icon} size={13} /> : <span style={{ width: 13 }} />}
           <span className="grow">{it.label}</span>
-          {it.keys ? <span className="dim tiny">{it.keys}</span> : null}
+          {it.keys ? <span className="dim tiny" style={{ flex: 'none', marginLeft: 12 }}>{it.keys}</span> : null}
         </button>
       ))}
     </div>

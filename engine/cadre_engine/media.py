@@ -1,4 +1,4 @@
-"""Médias : infos (ffprobe), import (fichier local, envoi, lien), vidéo légère pour l'aperçu, fichiers autorisés."""
+"""Media: info (ffprobe), import (local file, upload, link), lightweight preview video, allowed files."""
 import json
 import os
 import re
@@ -20,7 +20,7 @@ def probe(path):
     r = ff.probe_run(['-v', 'error', '-show_entries', 'format=duration:stream=codec_type,width,height,r_frame_rate,duration',
                       '-of', 'json', path], capture_output=True, text=True)
     if r.returncode != 0:
-        raise ValueError(f'fichier illisible : {os.path.basename(path)}')
+        raise ValueError(f'unreadable file: {os.path.basename(path)}')
     d = json.loads(r.stdout or '{}')
     streams = d.get('streams', [])
     v = next((s for s in streams if s.get('codec_type') == 'video'), None)
@@ -35,9 +35,9 @@ def probe(path):
             'fps': fps, 'hasAudio': a is not None}
 
 
-# ------------------------------------------------------------------ dossiers protégés (macOS : Documents / Bureau iCloud)
-# Sans l'accord de macOS, lire ces dossiers bloque indéfiniment : on teste l'accès dans un fil à part et, tant qu'il
-# n'est pas accordé, on refuse ces fichiers tout de suite au lieu de bloquer le serveur.
+# ------------------------------------------------------------------ protected folders (macOS: iCloud Documents / Desktop)
+# Without macOS's consent, reading these folders blocks forever: access is tested in a separate thread and, until it
+# is granted, these files are refused right away instead of blocking the server.
 _access = {'ok': None, 'probing': False, 'at': 0.0}
 
 
@@ -82,7 +82,7 @@ def path_of(url):
 
 
 def allowed(path):
-    """le serveur ne sert que les fichiers de l'appli, des bibliothèques et des projets."""
+    """the server only serves files from the app, the libraries and the projects."""
     rp = os.path.realpath(path)
     roots = [DATA] + [l['path'] for l in store.settings().get('libraries', [])]
     if sys.platform == 'darwin': roots.append(os.path.expanduser('~/Library/Fonts'))
@@ -101,7 +101,7 @@ def allowed(path):
 
 
 def add_source(p, path, name=None, origin=None):
-    """ajoute un fichier (laissé à sa place) comme source du projet."""
+    """adds a file (left where it is) as a project source."""
     path = os.path.abspath(os.path.expanduser(path))
     if not os.path.exists(path):
         raise FileNotFoundError(path)
@@ -119,14 +119,14 @@ def add_source(p, path, name=None, origin=None):
 
 
 def _encoder():
-    """encodeur matériel sur Mac (VideoToolbox), sinon x264 rapide à décoder."""
+    """hardware encoder on Mac (VideoToolbox), otherwise x264 tuned for fast decoding."""
     if sys.platform == 'darwin':
         return ['-c:v', 'h264_videotoolbox', '-b:v', '1800k']
     return ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '28', '-tune', 'fastdecode']
 
 
 def make_proxy(p, sid, job=None):
-    """vidéo 540p, image-clé toutes les 0,5 s, son AAC : l'aperçu saute instantanément d'un plan à l'autre."""
+    """540p video, a keyframe every 0.5 s, AAC audio: the preview jumps instantly from one shot to the next."""
     src = store.source(p, sid)
     if src['kind'] != 'video':
         return None
@@ -144,27 +144,48 @@ def make_proxy(p, sid, job=None):
             try: job.step(int(line.split('=')[1]) / 1e6 / dur)
             except ValueError: pass
     if proc.wait() != 0:
-        raise RuntimeError('ffmpeg a échoué sur la vidéo légère')
+        raise RuntimeError('ffmpeg failed on the preview proxy')
     os.replace(out + '.tmp.mp4', out)
     return file_url(out)
 
 
 def download(url, dest_dir, job=None):
-    """lien (Twitch, YouTube…) -> fichier mp4 (yt-dlp)."""
+    """link (Twitch, YouTube…) -> mp4 file (yt-dlp)."""
     os.makedirs(dest_dir, exist_ok=True)
-    cmd = [sys.executable, '-m', 'yt_dlp', '-f', 'bv*[height<=1080]+ba/b[height<=1080]/b', '--merge-output-format', 'mp4',
-           '--ffmpeg-location', os.path.dirname(ff.ffmpeg()), '--newline', '--retries', '20', '--fragment-retries', '20',
-           '-o', f'{dest_dir}/%(title).80s [%(id)s].%(ext)s', '--print', 'after_move:filepath', url]
+    # --no-playlist: a "watch?v=…&list=…" link downloads only THIS video, not the whole playlist;
+    # --progress: --print makes yt-dlp quiet, without it progress is never reported
+    cmd = [sys.executable, '-m', 'yt_dlp', '--no-playlist', '-f', 'bv*[height<=1080]+ba/b[height<=1080]/b', '--merge-output-format', 'mp4',
+           '--ffmpeg-location', os.path.dirname(ff.ffmpeg()), '--newline', '--progress', '--retries', '20', '--fragment-retries', '20',
+           '-o', f'{dest_dir}/%(title).80s [%(id)s].%(ext)s', '--print', 'before_dl:TITLE %(title)s', '--print', 'after_move:filepath', url]
+    if job: job.step(0.0, 'fetching video info…')
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if job: job.proc = proc
-    path = None
+    path, title, part, last_pct, tail = None, '', 0, 0.0, []
+    unit = lambda v: (v or '').replace('~', '').strip().replace('GiB', ' GB').replace('MiB', ' MB').replace('KiB', ' KB')
     for line in proc.stdout:
         line = line.strip()
-        m = re.search(r'\[download\]\s+([\d.]+)%', line)
-        if m and job: job.step(float(m.group(1)) / 100, line[:120])
+        tail = (tail + [line])[-8:]
+        if line.startswith('TITLE '):
+            title = line[6:].strip()
+            if job: job.step(None, f'downloading "{title[:70]}"…')
+            continue
+        m = re.search(r'\[download\]\s+([\d.]+)%(?:\s+of\s+~?\s*(\S+))?(?:\s+at\s+(\S+))?(?:\s+ETA\s+(\S+))?', line)
+        if m and job:
+            pct = float(m.group(1))
+            if pct + 30 < last_pct: part += 1                 # video then audio: two files downloaded one after the other
+            last_pct = pct
+            what = 'video' if part == 0 else 'audio'
+            total = 0.9 * pct / 100 if part == 0 else 0.9 + 0.08 * pct / 100
+            bits = [f'{what} {pct:.0f}%' + (f' of {unit(m.group(2))}' if m.group(2) else '')]
+            if m.group(3) and 'Unknown' not in m.group(3): bits.append(unit(m.group(3)))
+            if m.group(4) and m.group(4) != 'Unknown': bits.append(f'{m.group(4)} left')
+            job.step(total, 'downloading' + (f' "{title[:50]}"' if title else '') + ': ' + ' · '.join(bits))
+        elif job and ('[Merger]' in line or 'Merging' in line):
+            job.step(0.98, 'merging video and audio…')
         elif os.path.isabs(line) and os.path.exists(line): path = line
     if proc.wait() != 0 or not path:
-        raise RuntimeError('téléchargement impossible')
+        err = next((l for l in reversed(tail) if 'ERROR' in l), '')
+        raise RuntimeError('download failed' + (f': {err.split("ERROR:", 1)[-1].strip()[:200]}' if err else ''))
     return path
 
 

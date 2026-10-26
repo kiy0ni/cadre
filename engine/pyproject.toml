@@ -1,7 +1,7 @@
 [project]
 name = "cadre-engine"
 version = "1.0.0"
-description = "Moteur de Cadre : médias, transcription, IA, rendu."
+description = "Cadre engine: media, transcription, AI, rendering."
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "fastapi>=0.115",
@@ -18,7 +18,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# reconnaissance des voix (qui parle) et séparation voix / jeu : ~2 Go, installés à la demande
+# voice recognition (who is speaking) and voice / game audio separation: ~2 GB, installed on demand
+# (the extra keeps its name 'voix': the engine installs it with `uv sync --extra voix`)
 voix = ["torch>=2.4", "torchaudio>=2.4", "speechbrain>=1.0", "demucs>=4.0", "soundfile>=0.12"]
 
 [tool.uv]

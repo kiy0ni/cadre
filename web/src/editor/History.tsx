@@ -1,5 +1,5 @@
-// Historique : toutes les étapes du montage (y compris celles de l'assistant). Clic : revenir à cette étape (rien n'est perdu
-// tant qu'on ne modifie pas : les étapes suivantes restent en grisé, ⌘⇧Z pour les retrouver).
+// History: every step of the edit (including the assistant's). Click: go back to that step (nothing is lost
+// until you make a change: later steps stay greyed out, ⌘⇧Z brings them back).
 import { useEffect, useRef, useState } from 'react';
 import { ago } from '../lib/format';
 import { histMeta, useStore } from '../lib/store';

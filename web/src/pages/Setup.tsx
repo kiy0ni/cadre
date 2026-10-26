@@ -1,4 +1,4 @@
-// Premier lancement : vérifie l'IA, propose d'ajouter une bibliothèque de médias. Deux écrans, tout est modifiable ensuite.
+// First launch: checks the AI, offers to add a media library. Two screens; everything can be changed later.
 import { useEffect, useState } from 'react';
 import { api, type SystemInfo } from '../lib/api';
 import { desktop } from '../lib/desktop';

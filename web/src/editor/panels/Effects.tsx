@@ -1,6 +1,6 @@
-// Panneau Effets : mes effets (préréglages enregistrés), effets d'image par catégorie, looks de couleur, accentuations
-// ponctuelles (à la tête de lecture), transitions, titres. Clic : applique à la sélection (ou au plan sous la tête de
-// lecture) ; glisser : sur un clip de la timeline.
+// Effects panel: my effects (saved presets), picture effects by category, color looks, one-off accents
+// (at the playhead), transitions, titles. Click: applies to the selection (or to the shot under the
+// playhead); drag: onto a timeline clip.
 import { useState, type CSSProperties } from 'react';
 import { api } from '../../lib/api';
 import { Icon } from '../../lib/icons';
@@ -39,7 +39,7 @@ const TRANS: { kind: TransitionKind; label: string; demo: CSSProperties }[] = [
 const base: TextStyle = { font: 'Inter', size: 110, weight: 800, color: '#FFFFFF', stroke: 0, strokeColor: '#000000', bg: null, x: 0.5, y: 0.45, align: 'center', anim: 'fade', shadow: true };
 export const TEXT_PRESETS: { id: string; label: string; text: string; style: TextStyle }[] = [
   { id: 'titre', label: tx('Titre'), text: tx('Titre'), style: { ...base, size: 140 } },
-  { id: 'sous', label: 'Sous-titre', text: 'Sous-titre', style: { ...base, size: 64, weight: 600, y: 0.8 } },
+  { id: 'sous', label: tx('Sous-titre'), text: tx('Sous-titre'), style: { ...base, size: 64, weight: 600, y: 0.8 } },
   { id: 'tiers', label: tx('Tiers inférieur'), text: tx('Nom Prénom\\nFonction'), style: { ...base, size: 46, weight: 700, bg: 'rgba(0,0,0,0.6)', x: 0.22, y: 0.82, align: 'left', anim: 'slide', shadow: false } },
   { id: 'encadre', label: tx('Encadré'), text: tx('À RETENIR'), style: { ...base, size: 58, weight: 800, bg: '#3A82F7', y: 0.15, anim: 'slide', uppercase: true, shadow: false } },
   { id: 'impact', label: tx('Impact'), text: 'BOUM', style: { ...base, font: 'Bebas Neue', weight: 400, size: 230, stroke: 10, rotation: -3, uppercase: true, anim: 'pop' } },

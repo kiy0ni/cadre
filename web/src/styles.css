@@ -1,5 +1,5 @@
-/* Cadre — système d'interface. Graphite neutre, accent bleu, densité « logiciel de montage ».
-   Règles : pas de dégradé décoratif, pas d'emoji, rayons 3-6 px, texte 12 px, chiffres tabulaires pour les temps. */
+/* Cadre — UI system. Neutral graphite, blue accent, "video editing software" density.
+   Rules: no decorative gradients, no emoji, 3-6 px radii, 12 px text, tabular figures for times. */
 :root {
   --bg: #0f1012;
   --chrome: #16171a;
@@ -61,7 +61,7 @@ p { margin: 0; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sep-v { width: 1px; height: 18px; background: var(--border-2); margin: 0 4px; flex: none; }
 
-/* ---------- boutons ---------- */
+/* ---------- buttons ---------- */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: var(--radius);
   border: 1px solid var(--border-2); background: var(--panel-3); color: var(--text); cursor: pointer; white-space: nowrap; transition: background .1s, border-color .1s; }
 .btn:hover { background: var(--hover); }
@@ -123,7 +123,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
 .empty { border: 1px dashed var(--border-2); border-radius: 6px; padding: 18px; text-align: center; color: var(--text-2); background: none; cursor: pointer; width: 100%; }
 .empty:hover { border-color: var(--accent); color: var(--text); }
 
-/* ---------- coque (accueil, styles, personnes, réglages) ---------- */
+/* ---------- shell (home, styles, people, settings) ---------- */
 .shell { display: grid; grid-template-columns: 210px 1fr; height: 100vh; }
 .side { background: var(--chrome); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 12px 8px; gap: 2px; -webkit-app-region: drag; }
 .desktop .side { padding-top: 46px; }
@@ -158,7 +158,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
 .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px 12px; align-items: end; }
 .section-title { font-size: 11px; font-weight: 600; color: var(--text-2); margin-top: 6px; }
 
-/* ---------- éditeur ---------- */
+/* ---------- editor ---------- */
 .ed { display: flex; flex-direction: column; height: 100vh; background: var(--bg); }
 .ed-top { height: 38px; flex: none; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 8px; background: var(--chrome); border-bottom: 1px solid var(--border); -webkit-app-region: drag; }
 .desktop .ed-top { padding-left: 80px; }
@@ -187,7 +187,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
 .pad { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
 .toolbar { min-height: 32px; flex: none; display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-bottom: 1px solid var(--border); }
 
-/* propriétés (façon « Effect Controls ») */
+/* properties ("Effect Controls"-style) */
 .prop-group { border-bottom: 1px solid var(--border); }
 .prop-head { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; cursor: pointer; color: var(--text); font-weight: 600; font-size: 11.5px; }
 .prop-head .chev { color: var(--text-3); transition: transform .1s; display: flex; }
@@ -202,7 +202,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
 .prop-head .reset { opacity: 0; margin-left: auto; }
 .prop-head:hover .reset { opacity: 1; }
 
-/* bins (médias, sons, effets) */
+/* bins (media, sounds, effects) */
 .bin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; padding: 8px; }
 .tile { display: flex; flex-direction: column; gap: 4px; cursor: pointer; border-radius: 4px; padding: 3px; min-width: 0; }
 .tile:hover { background: var(--panel-2); }
@@ -221,7 +221,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
 .fx-tile svg { color: var(--text); }
 .bin-head { padding: 10px 8px 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
 
-/* moniteurs */
+/* monitors */
 .monitor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; background: #0b0c0d; }
 .stage-box { background: #000; overflow: hidden; }
@@ -335,7 +335,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
 .md-pre { margin: 2px 0; padding: 8px 10px; background: #121316; border: 1px solid var(--border); border-radius: 5px; font: 11px/1.5 var(--mono); white-space: pre-wrap; overflow: auto; }
 .md-mention { color: var(--accent-hi); }
 
-/* transcription */
+/* transcript */
 .words { line-height: 1.85; }
 .w { cursor: pointer; padding: 1px 1px; border-radius: 2px; }
 .w:hover { background: var(--hover); }
@@ -346,7 +346,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
 .tline { display: flex; gap: 8px; padding: 2px 0; }
 .tline .t { color: var(--text-3); flex: none; width: 54px; cursor: pointer; font: 10.5px var(--mono); padding-top: 2px; }
 
-/* couleur / audio / export */
+/* color / audio / export */
 .scope { background: #0b0c0d; border: 1px solid var(--border); border-radius: 4px; display: block; width: 100%; }
 .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
 .preset { border-radius: 4px; overflow: hidden; border: 1px solid var(--border); background: var(--panel-2); cursor: pointer; text-align: center; font-size: 10.5px; padding-bottom: 4px; color: var(--text-2); }
@@ -361,7 +361,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
 .export-card:hover { border-color: var(--text-3); }
 .export-card.on { border-color: var(--accent); background: var(--accent-bg); }
 
-/* téléphone : un panneau à la fois */
+/* phone: one panel at a time */
 .m-only { display: none; }
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
@@ -392,7 +392,7 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 0 4px; border-radius: 
   .mon-bar .btn.icon.ghost[title^="Image"] { display: none; }
 }
 
-/* ---------- densité confortable : contrôles plus grands, lisibles, agrandissables ---------- */
+/* ---------- comfortable density: larger, readable, scalable controls ---------- */
 body { font-size: 13px; }
 .btn { height: 30px; padding: 0 12px; }
 .btn.icon { width: 30px; }
@@ -429,14 +429,14 @@ label.field { font-size: 12px; gap: 5px; }
 .workspaces button { height: 28px; font-size: 13px; }
 input[type=color] { width: 34px; height: 26px; }
 input[type=checkbox] { width: 15px; height: 15px; }
-/* zone de texte avec bouton « agrandir » */
+/* text area with an "expand" button */
 .bigtext { position: relative; width: 100%; }
 .bigtext .expand { position: absolute; right: 6px; top: 6px; opacity: 0; }
 .bigtext:hover .expand, .bigtext:focus-within .expand { opacity: 1; }
 .modal.huge { width: min(1100px, 100%); height: min(86vh, 900px); }
 .modal.huge .modal-body { flex: 1; min-height: 0; }
 .modal.huge textarea.input { flex: 1; max-height: none; field-sizing: fixed; font-size: 14px; line-height: 1.6; }
-/* panneau agrandi (double-clic sur ses onglets, ou touche ²/`) */
+/* maximized panel (double-click its tabs, or the ²/` key) */
 .panel.maxed { position: fixed; z-index: 30; top: 42px; left: 4px; right: 4px; bottom: 4px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
 .ptabs .max-btn { opacity: .5; }
 .ptabs:hover .max-btn { opacity: 1; }
@@ -459,3 +459,43 @@ input.switch { appearance: none; -webkit-appearance: none; width: 36px; height: 
 input.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-2); transition: transform .15s, background .15s; }
 input.switch:checked { background: var(--accent); border-color: var(--accent); }
 input.switch:checked::after { transform: translateX(16px); background: #fff; }
+
+/* timeline: empty gaps on V1, drop ghost, hint while dragging */
+.track .gap { position: absolute; top: 2px; bottom: 2px; border: 1px dashed rgba(255,255,255,.22); border-radius: 4px;
+  background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.04) 6px 12px); cursor: default; }
+.track .gap:hover { border-color: rgba(255,255,255,.45); }
+.drop-ghost { position: absolute; top: 3px; bottom: 3px; border: 2px dashed var(--warn); border-radius: 4px; background: rgba(245,200,76,.12); pointer-events: none; z-index: 5; }
+.tl-hint { font-size: 11.5px; color: var(--text-2, #bbb); background: rgba(255,255,255,.07); border-radius: 6px; padding: 3px 8px; margin-right: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46%; }
+
+/* new project: media + request to the AI */
+.np-drop { border: 1px dashed var(--border-2); border-radius: 8px; padding: 14px; display: flex; align-items: center; justify-content: center; min-height: 64px;
+  color: var(--text-2); cursor: pointer; background: var(--panel-2); text-align: center; }
+.np-drop:hover, .np-drop.over { border-color: var(--accent); background: var(--accent-bg); color: var(--text); }
+.np-drop > span { display: inline-flex; align-items: center; gap: 8px; }
+.np-files { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; justify-content: flex-start; cursor: default; }
+.np-file { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; height: 26px; padding: 0 2px 0 8px; border-radius: 5px; background: var(--panel-3); color: var(--text); font-size: 12px; }
+.np-prompt { min-height: 92px; resize: vertical; line-height: 1.45; font-size: 13px; padding: 8px 10px; }
+.chip { height: 24px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--border-2); background: var(--panel-2); color: var(--text-2); font-size: 11.5px; cursor: pointer; }
+.chip:hover { color: var(--text); border-color: var(--text-3); }
+.cc-summary { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 2px; }
+.cc-sum { font-size: 11px; height: 20px; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 4px; background: var(--panel-3); color: var(--text-2); }
+.cc-sum b { color: var(--text); font-weight: 600; }
+.cc-sum.up b { color: var(--ok); }
+.ai-note { display: flex; gap: 8px; align-items: flex-start; margin: 6px 10px 2px; padding: 7px 9px; border-radius: 6px; background: var(--accent-bg); color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
+.ai-note svg { flex: none; margin-top: 2px; color: var(--accent-hi); }
+.ai-note b { color: var(--text); font-weight: 600; }
+
+/* assistant: media preparation and AI steps */
+.cc-card { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); padding: 6px 8px; margin: 4px 0 8px; display: flex; flex-direction: column; gap: 2px; }
+.cc-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 2px 4px; cursor: pointer; }
+.cc-stage, .cc-todo { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; padding: 4px 2px; color: var(--text-2); }
+.cc-stage.running, .cc-todo.doing { color: var(--text); }
+.cc-stage.done, .cc-todo.done { color: var(--text-3); }
+.cc-todo.done span:last-child { text-decoration: line-through; text-decoration-color: rgba(255,255,255,.25); }
+.cc-stage.error { color: var(--danger); }
+.cc-stage-ic { width: 14px; height: 16px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.cc-stage.done .cc-stage-ic, .cc-todo.done .cc-stage-ic { color: var(--ok); }
+.cc-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--text-3); }
+.cc-bar { height: 4px; border-radius: 2px; background: var(--panel-3); overflow: hidden; }
+.cc-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s ease; }

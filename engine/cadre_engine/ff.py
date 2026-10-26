@@ -1,4 +1,4 @@
-"""ffmpeg / ffprobe : ceux du système s'ils existent, sinon une copie téléchargée une fois (static-ffmpeg)."""
+"""ffmpeg / ffprobe: the system ones if present, otherwise a copy downloaded once (static-ffmpeg)."""
 import shutil
 import subprocess
 
@@ -24,7 +24,7 @@ def ffprobe():
 
 
 def run(args, **kw):
-    """ffmpeg <args> (sans le nom du programme)"""
+    """ffmpeg <args> (without the program name)"""
     return subprocess.run([ffmpeg(), *args], **kw)
 
 

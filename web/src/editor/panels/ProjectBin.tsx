@@ -1,5 +1,5 @@
-// Panneau Projet : médias importés (vignettes ou liste), import par fichiers / glisser-déposer / lien, état des analyses.
-// Double-clic : ouvre le média dans le moniteur source. Glisser : vers la timeline.
+// Project panel: imported media (thumbnails or list), import via files / drag and drop / link, analysis status.
+// Double-click: opens the media in the source monitor. Drag: to the timeline.
 import { useRef, useState } from 'react';
 import { api } from '../../lib/api';
 import { desktop } from '../../lib/desktop';
@@ -18,7 +18,7 @@ function statusOf(s: Source, jobs: JobInfo[]): { text: string; busy: boolean; er
   const j = jobs.find((x) => x.meta?.source === s.id && (x.status === 'running' || x.status === 'queued'));
   if (j) {
     const what = j.kind === 'proxy' ? tx('Préparation') : j.kind === 'transcribe' ? tx('Transcription') : j.kind === 'speakers' ? tx('Voix') : j.kind === 'stems' ? tx('Séparation') : tx('Analyse');
-    return { text: j.status === 'queued' ? `${what} en attente` : `${what} ${Math.round(j.progress * 100)} %`, busy: true };
+    return { text: j.status === 'queued' ? tx('{0} en attente', what) : `${what} ${Math.round(j.progress * 100)} %`, busy: true };
   }
   if (Object.values(s.status).includes('error')) return { text: tx('Erreur'), busy: false, error: true };
   return null;
@@ -90,7 +90,7 @@ export function ProjectBin() {
     useStore.getState().open(project.id);
   };
   const openSource = (s: Source) => setUi({ sourceId: s.id, upperTab: 'source' });
-  const setV = (v: 'grid' | 'list') => { setView(v); try { localStorage.setItem('cadre-bin', v); } catch { /* stockage indisponible */ } };
+  const setV = (v: 'grid' | 'list') => { setView(v); try { localStorage.setItem('cadre-bin', v); } catch { /* storage unavailable */ } };
   const downloads = jobs.filter((j) => j.project === project.id && j.kind === 'download' && (j.status === 'running' || j.status === 'queued'));
   const shown = project.sources.filter((s) => !q || s.name.toLowerCase().includes(q.toLowerCase()));
   const sel = project.sources.find((s) => s.id === selId);
@@ -182,7 +182,7 @@ export function ProjectBin() {
         )}
         {sel ? (
           <div className="tiny dim" style={{ padding: '4px 10px 10px' }}>
-            {sel.width ? `${sel.width}×${sel.height} · ` : ''}{sel.fps ? `${Math.round(sel.fps)} i/s · ` : ''}{sel.status.transcript === 'done' ? 'transcrit' : sel.status.transcript === 'running' ? tx('transcription…') : ''}{sel.stems ? tx(' · voix séparée') : ''}
+            {sel.width ? `${sel.width}×${sel.height} · ` : ''}{sel.fps ? `${Math.round(sel.fps)} ${tx('i/s')} · ` : ''}{sel.status.transcript === 'done' ? tx('transcrit') : sel.status.transcript === 'running' ? tx('transcription…') : ''}{sel.stems ? tx(' · voix séparée') : ''}
           </div>
         ) : null}
       </div>

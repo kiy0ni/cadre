@@ -1,4 +1,4 @@
-// La vidéo elle-même. Même code pour l'aperçu en direct (Player dans l'éditeur) et pour le rendu final (Node).
+// The video itself. Same code for the live preview (Player in the editor) and the final render (Node).
 import React, { useMemo } from 'react';
 import {
   AbsoluteFill, Freeze, Html5Audio, Img, interpolate, OffthreadVideo, random, Sequence, useCurrentFrame, useVideoConfig,
@@ -10,12 +10,12 @@ import { censorText } from './censor';
 import { fontFamily } from './fonts';
 import { dbToGain, inRanges, mergeStyle, nearRanges, resolve, type Resolved } from './resolve';
 
-const MASTER = 0.8; // marge : le rendu est normalisé (LUFS du pack) à la fin
-// Aperçu : la lecture ne s'arrête jamais pour attendre un média (pas d'à-coups ni de retour en arrière), les médias
-// rattrapent en douceur. Rendu : chaque image attend ses médias.
+const MASTER = 0.8; // headroom: the render is normalized (pack LUFS) at the end
+// Preview: playback never stops to wait for media (no stutter or jumping back), media
+// catch up smoothly. Render: every frame waits for its media.
 let BUFFER = true;
 const SHIFT = () => (BUFFER ? undefined : 0.9);
-// les navigateurs refusent une vitesse de lecture au-delà de 16× (l'aperçu se recale tout seul ; le rendu n'a pas cette limite)
+// browsers reject playback rates above 16× (the preview resyncs on its own; the render has no such limit)
 const RATE = (r: number) => (BUFFER ? r : Math.min(16, Math.max(0.0625, r)));
 
 export const Main: React.FC<CompositionProps> = (props) => {
@@ -25,7 +25,7 @@ export const Main: React.FC<CompositionProps> = (props) => {
   const srcs = useMemo(() => new Map(props.project.sources.map((s) => [s.id, s])), [props.project.sources]);
   const preview = props.mode === 'preview';
   BUFFER = !preview;
-  const k = Math.min(r.width, r.height) / 1080; // les tailles du pack sont pensées pour du 1080
+  const k = Math.min(r.width, r.height) / 1080; // pack sizes are designed for 1080
 
   const transform = cameraAt(r, frame);
   const tint = r.tints.find((t) => frame >= t.from && frame < t.from + t.dur);
@@ -39,7 +39,7 @@ export const Main: React.FC<CompositionProps> = (props) => {
     ...r.overlays.filter((o) => o.clip.type === 'video').map((o) => ({ id: o.clip.id, look: (o.clip as OVideo).look })),
   ], [props.project.timeline, r.overlays]);
   const lookOf = (id: string) => { const it = itemById.get(id); return it && 'look' in it ? (it as { look?: Look }).look : undefined; };
-  /** fondu audio d'entrée / sortie d'un plan (secondes) */
+  /** audio fade in / out of a shot (seconds) */
   const fadeGain = (itemId: string, g: number) => {
     const it = itemById.get(itemId);
     const ri = ritemById.get(itemId);
@@ -62,7 +62,8 @@ export const Main: React.FC<CompositionProps> = (props) => {
           const useStems = style.stems.enabled && !!s.stems;
           const clip = props.project.timeline.find((x) => x.id === seg.itemId);
           const cropX = clip && clip.type === 'clip' && clip.cropX !== undefined ? clip.cropX : 0.5;
-          const baseVol = MASTER * voiceGain * dbToGain(clip && clip.type === 'clip' ? clip.volumeDb || 0 : 0);
+          const off = !!(clip && clip.type === 'clip' && clip.audioOff); // unlinked audio: played by its audio clips
+          const baseVol = off ? 0 : MASTER * voiceGain * dbToGain(clip && clip.type === 'clip' ? clip.volumeDb || 0 : 0);
           const voiceVol = (f: number) => {
             const g = seg.from + f;
             const v = baseVol * fadeGain(seg.itemId, g);
@@ -82,14 +83,14 @@ export const Main: React.FC<CompositionProps> = (props) => {
               <FxLayer bars={false} look={seg.look} start={(ritemById.get(seg.itemId)?.from ?? seg.from) - seg.from} dur={ritemById.get(seg.itemId)?.dur ?? seg.dur}>
               {s.kind === 'image' ? (
                 <Img src={s.url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              ) : s.kind === 'audio' ? (
+              ) : s.kind === 'audio' ? (off ? null :
                 <Html5Audio src={srcUrl(s)} trimBefore={trim} playbackRate={RATE(seg.rate)} volume={voiceVol} pauseWhenBuffering={BUFFER} acceptableTimeShiftInSeconds={SHIFT()} />
               ) : (
                 <OffthreadVideo
                   src={srcUrl(s)}
                   trimBefore={trim}
                   playbackRate={RATE(seg.rate)}
-                  muted={useStems || !s.hasAudio}
+                  muted={useStems || !s.hasAudio || off}
                   volume={voiceVol}
                   pauseWhenBuffering={BUFFER} acceptableTimeShiftInSeconds={SHIFT()}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${cropX * 100}% 50%` }}
@@ -98,7 +99,7 @@ export const Main: React.FC<CompositionProps> = (props) => {
               </FxLayer>
               </AbsoluteFill>
               <Vignette amount={colorOf(seg.look).vignette} />
-              {useStems && s.stems ? (
+              {useStems && s.stems && !off ? (
                 <>
                   <Html5Audio src={s.stems.voice} trimBefore={trim} playbackRate={RATE(seg.rate)} volume={voiceVol} pauseWhenBuffering={BUFFER} acceptableTimeShiftInSeconds={SHIFT()} />
                   <Html5Audio src={s.stems.game} trimBefore={trim} playbackRate={RATE(seg.rate)} volume={gameVol}
@@ -129,7 +130,7 @@ export const Main: React.FC<CompositionProps> = (props) => {
             {m.item.kind === 'image' ? (
               <Img src={m.item.url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             ) : (
-              <OffthreadVideo src={m.item.url} volume={MASTER * dbToGain(m.item.volumeDb || 0)} pauseWhenBuffering={BUFFER} acceptableTimeShiftInSeconds={SHIFT()}
+              <OffthreadVideo src={m.item.url} muted={!!m.item.audioOff} volume={m.item.audioOff ? 0 : MASTER * dbToGain(m.item.volumeDb || 0)} pauseWhenBuffering={BUFFER} acceptableTimeShiftInSeconds={SHIFT()}
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             )}
             </FxLayer>
@@ -191,7 +192,7 @@ export const Main: React.FC<CompositionProps> = (props) => {
 
       {r.audio.map((a) => (
         <Sequence key={a.key} from={a.from} durationInFrames={a.dur} layout="none">
-          <Html5Audio src={a.clip.src ? srcUrl(srcs.get(a.clip.src)) : a.clip.url || ''} trimBefore={Math.round((a.clip.in || 0) * r.fps)} pauseWhenBuffering={BUFFER} acceptableTimeShiftInSeconds={SHIFT()}
+          <Html5Audio src={a.clip.src ? srcUrl(srcs.get(a.clip.src)) : a.clip.url || ''} loop={!!a.clip.loop} playbackRate={RATE(a.clip.speed || 1)} trimBefore={Math.round((a.clip.in || 0) * r.fps)} pauseWhenBuffering={BUFFER} acceptableTimeShiftInSeconds={SHIFT()}
             volume={(f) => {
               let v = MASTER * a.volume * clipFade(f, a.dur, a.clip.fadeIn, a.clip.fadeOut, r.fps);
               if (a.clip.duck) { const d = nearRanges(r.speech, a.from + f); v *= 1 - (1 - dbToGain(-(style.music.duckDb || 0))) * (d === 0 ? 1 : Math.max(0, 1 - d / (0.3 * r.fps))); }
@@ -217,7 +218,7 @@ function clipFade(f: number, dur: number, fin = 0, fout = 0, fps = 30) {
   return Math.max(0, Math.min(1, v));
 }
 
-/** transition d'entrée active à l'image f -> style du calque principal (+ éclair blanc) */
+/** incoming transition active at frame f -> main layer style (+ white flash) */
 function transitionAt(r: Resolved, frame: number): { style: React.CSSProperties; flash: number } {
   const t = r.transitions.find((x) => frame >= x.from && frame < x.from + x.dur);
   if (!t) return { style: {}, flash: 0 };
@@ -289,12 +290,12 @@ function musicVol(f: number, m: Resolved['music'][number], r: Resolved) {
   const fin = Math.min(1, f / (0.4 * r.fps));
   const fout = Math.min(1, (m.dur - f) / (0.8 * r.fps));
   const d = nearRanges(r.speech, g);
-  const near = d === 0 ? 1 : Math.max(0, 1 - d / (0.3 * r.fps)); // baisse douce sous la voix
+  const near = d === 0 ? 1 : Math.max(0, 1 - d / (0.3 * r.fps)); // gentle ducking under the voice
   const duck = 1 - (1 - m.duck) * near;
   return Math.min(1, MASTER * m.volume * duck * Math.max(0, Math.min(fin, fout)));
 }
 
-/** caméra : zoom sec sur une cible (fenêtre bornée à l'image, jamais de bord noir) + secousse */
+/** camera: hard zoom on a target (window clamped to the frame, never a black edge) + shake */
 function cameraAt(r: Resolved, frame: number): string {
   let s = 1;
   let tx = 0.5;
@@ -348,7 +349,7 @@ const TintOverlay: React.FC<{ mode: 'red' | 'flash' | 'bw'; dur: number }> = ({ 
   return <AbsoluteFill style={{ backgroundColor: 'rgba(232,35,42,0.33)', mixBlendMode: 'multiply' }} />;
 };
 
-/** apparition « pop » (échelle 0,7 -> 1,08 -> 1) */
+/** "pop" entrance (scale 0.7 -> 1.08 -> 1) */
 function pop(f: number, fps: number, from = 0.7, peak = 1.08, ms1 = 70, ms2 = 130) {
   const t = (f / fps) * 1000;
   if (t >= ms2) return 1;
@@ -400,7 +401,7 @@ const FxText: React.FC<{ text: string; kind: 'big' | 'note' | 'rip'; k: number; 
 
 const MARKS: [RegExp, string][] = [[/\*(.+?)\*/g, '#E8232A'], [/~(.+?)~/g, '#9146FF'], [/\^(.+?)\^/g, '#FFD400']];
 function marked(text: string, accent?: string): React.ReactNode[] {
-  // *rouge*  ~violet~  ^jaune^  (comme les cartons du moteur)
+  // *red*  ~purple~  ^yellow^  (like the engine's title cards)
   const out: React.ReactNode[] = [];
   const re = /\*(.+?)\*|~(.+?)~|\^(.+?)\^/g;
   let last = 0;
@@ -441,15 +442,18 @@ const CardView: React.FC<{
       </AbsoluteFill>
     );
   }
+  const img = item.image ? <Img src={item.image} style={{ maxWidth: '50%', maxHeight: item.text.trim() ? '36%' : '58%', objectFit: 'contain', transform: `scale(${p})` }} /> : null;
   if (item.style === 'title') {
     return (
-      <AbsoluteFill style={{ backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ ...common, fontSize: 150 * k, background: item.band ?? '#E8232A', padding: `${10 * k}px ${40 * k}px`, transform: `scale(${p})` }}>{item.text}</div>
+      <AbsoluteFill style={{ backgroundColor: bg, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 40 * k }}>
+        {img}
+        {item.text.trim() ? <div style={{ ...common, fontSize: 150 * k, background: item.band ?? '#E8232A', padding: `${10 * k}px ${40 * k}px`, transform: `scale(${p})` }}>{item.text}</div> : null}
       </AbsoluteFill>
     );
   }
   return (
     <AbsoluteFill style={{ backgroundColor: bg, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 30 * k }}>
+      {img}
       <div style={{ ...common, fontSize: (item.style === 'narr' ? 96 : 150) * k, transform: `scale(${p})`, padding: `0 ${80 * k}px` }}>
         {marked(item.text, twitchColor)}
       </div>

@@ -1,14 +1,14 @@
 {
  "id": "tuto",
- "name": "Tutoriel / screencast",
- "description": "Explication à l’écran : silences coupés, zooms sur la zone utile, textes d’étapes.",
+ "name": "Tutorial / screencast",
+ "description": "On-screen explanation: silences cut, zooms on the relevant area, step texts.",
  "format": {
   "width": 1920,
   "height": 1080,
   "fps": 30
  },
- "structure": "ce qu’on va faire → étapes numérotées → résultat",
- "rules": "# Tutoriel\n- Annoncer le résultat au début (montrer le résultat final 3-5 s).\n- Couper les silences, les erreurs et les attentes (accélérer les chargements).\n- Zoomer sur la zone de l'écran dont on parle ; texte « encadré » pour chaque étape (« Étape 2 : … »).\n- Sous-titres lisibles, pas de bruitages comiques, musique très discrète.",
+ "structure": "what we're going to do → numbered steps → result",
+ "rules": "# Tutorial\n- Announce the result at the start (show the final result for 3-5 s).\n- Cut silences, mistakes and waiting (speed up loading).\n- Zoom on the part of the screen being discussed; a boxed text (\"encadre\" text style) for each step (\"Step 2: …\").\n- Readable subtitles, no comedic sound effects, very discreet music.",
  "style": {
   "captions": {
    "font": "Inter",
@@ -69,7 +69,7 @@
  "speakers": [],
  "defaultSpeaker": null,
  "whisper": {
-  "language": "fr",
+  "language": "",
   "prompt": ""
  }
 }

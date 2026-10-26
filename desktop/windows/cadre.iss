@@ -1,5 +1,5 @@
-; Installateur Windows de Cadre (Inno Setup 6). Construit par « pnpm dist:win » sur Windows.
-; Installation par utilisateur (pas besoin d'être administrateur), menu Démarrer, raccourci bureau, liens cadre://.
+; Cadre Windows installer (Inno Setup 6). Built by "pnpm dist:win" on Windows.
+; Per-user install (no administrator rights needed), Start menu, desktop shortcut, cadre:// links.
 #ifndef AppVersion
   #define AppVersion "1.0.0"
 #endif
@@ -23,14 +23,16 @@ UninstallDisplayIcon={app}\Cadre.exe
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+ShowLanguageDialog=auto
 ArchitecturesAllowed={#Arch}compatible
 ArchitecturesInstallIn64BitMode={#Arch}compatible
 
 [Languages]
+Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Créer un raccourci sur le bureau"; GroupDescription: "Raccourcis :"
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -45,7 +47,7 @@ Root: HKCU; Subkey: "Software\Classes\cadre"; ValueType: string; ValueName: "URL
 Root: HKCU; Subkey: "Software\Classes\cadre\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\Cadre.exe"" ""%1"""
 
 [Run]
-Filename: "{app}\Cadre.exe"; Description: "Lancer Cadre"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Cadre.exe"; Description: "{cm:LaunchProgram,Cadre}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/IM Cadre.exe /F"; Flags: runhidden; RunOnceId: "StopCadre"

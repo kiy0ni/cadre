@@ -1,6 +1,6 @@
-// Éditeur : barre du haut (projet, espaces de travail, assistant, export) et disposition des panneaux par espace.
-// Montage : [Source | Propriétés | Paroles] + Programme en haut, [Projet | Bibliothèque | Effets] + Timeline en bas,
-// assistant sur toute la hauteur à droite. Couleur, Audio, Export : dispositions dédiées. Téléphone : un panneau à la fois.
+// Editor: top bar (project, workspaces, assistant, export) and panel layout per workspace.
+// Edit: [Source | Properties | Transcript] + Program on top, [Project | Library | Effects] + Timeline at the bottom,
+// assistant full height on the right. Color, Audio, Export: dedicated layouts. Phone: one panel at a time.
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { Icon, Logo } from '../lib/icons';
@@ -19,6 +19,7 @@ import { EffectsPanel } from './panels/Effects';
 import { ColorPanel, ExportPage, Mixer } from './Workspaces';
 import { focusAssistant, useShortcuts } from './shortcuts';
 import { HistoryPanel } from './History';
+import { migrateLegacyMusic } from './actions';
 import { tx } from '../lib/i18n';
 
 export function Editor({ id }: { id: string }) {
@@ -39,6 +40,8 @@ export function Editor({ id }: { id: string }) {
 
 function Responsive() {
   useShortcuts();
+  const pid = useStore((s) => s.project?.id);
+  useEffect(() => { migrateLegacyMusic(); }, [pid]);
   const sel = useStore((s) => s.sel);
   const setUi = useStore((s) => s.setUi);
   useEffect(() => {
@@ -49,8 +52,8 @@ function Responsive() {
   return useIsMobile() ? <MobileLayout /> : <DesktopLayout />;
 }
 
-// ---------------------------------------------------------------- bureau
-// panneau agrandi (double-clic sur les onglets, ou touche ² / ` au survol) : un seul à la fois
+// ---------------------------------------------------------------- desktop
+// maximized panel (double-click on the tabs, or the ² / ` key on hover): only one at a time
 let hovered: string | null = null;
 let setMaxGlobal: ((v: string | null) => void) | null = null;
 let maxGlobal: string | null = null;
@@ -235,7 +238,7 @@ function TopBar({ mobile = false }: { mobile?: boolean }) {
   );
 }
 
-// ---------------------------------------------------------------- téléphone
+// ---------------------------------------------------------------- phone
 type MTab = 'ai' | 'timeline' | 'media' | 'props' | 'more';
 
 function MobileLayout() {

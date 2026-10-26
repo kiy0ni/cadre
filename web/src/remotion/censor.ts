@@ -1,5 +1,5 @@
-// Gros mots : une lettre remplacée par * dans le texte (règle KiyOni), et repérage pour le bip dans le son.
-// Liste reprise du moteur (studio/engine.py, CENSOR_WORDS).
+// Swear words: one letter replaced with * in the text (if the style asks for it), and detection for the audio bleep.
+// List taken from the engine (studio/engine.py, CENSOR_WORDS).
 export const CENSOR_WORDS: Record<string, string> = {
   putain: 'p*tain', putains: 'p*tains', merde: 'm*rde', merdes: 'm*rdes', emmerde: 'emm*rde', emmerdes: 'emm*rdes',
   emmerder: 'emm*rder', 'bâtard': 'b*tard', 'bâtards': 'b*tards', batard: 'b*tard', batards: 'b*tards',

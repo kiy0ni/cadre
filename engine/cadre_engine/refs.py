@@ -1,10 +1,10 @@
-"""Analyse d'une vidéo de référence (lien YouTube / Twitch / fichier / source du projet) pour l'assistant :
-images clés, changements de plan, paroles, évènements sonores, et surtout ce qui vient de la bibliothèque de
-l'utilisateur : quels bruitages tombent à quels instants, quelle musique (et à partir d'où dans le morceau).
+"""Analysis of a reference video (YouTube / Twitch link, file, project source) for the assistant: key frames,
+shot changes, speech, sound events, and above all what comes from the user's library: which sound effects land at
+which moments, which music (and from where in the track).
 
-La comparaison se fait sur des spectrogrammes « mel » : chaque son de la bibliothèque est comparé au début de chaque
-évènement sonore de la référence ; chaque musique est cherchée par corrélation glissante. Si la séparation voix / fond
-est installée, on compare sur le fond (sans la voix) : les correspondances sont bien plus nettes."""
+Matching is done on mel spectrograms: each library sound is compared with the start of each sound event in the
+reference; each music track is searched for by sliding correlation. If voice / background separation is installed,
+the comparison runs on the background (without the voice): matches are much clearer."""
 import hashlib
 import json
 import os
@@ -26,9 +26,9 @@ def _sha(s):
     return hashlib.sha1(s.encode()).hexdigest()[:16]
 
 
-# ------------------------------------------------------------------ récupération
+# ------------------------------------------------------------------ fetching
 def fetch(src, a, b, job=None):
-    """-> (chemin, décalage, titre, durée totale) ; un lien n'est téléchargé que sur [a, b] (basse définition)."""
+    """-> (path, offset, title, total duration); a link is only downloaded over [a, b] (low resolution)."""
     if re.match(r'^https?://', src):
         d = os.path.join(REFS, _sha(f'{src}|{a:.1f}|{b:.1f}'))
         os.makedirs(d, exist_ok=True)
@@ -36,21 +36,21 @@ def fetch(src, a, b, job=None):
         if os.path.exists(meta_f):
             m = json.load(open(meta_f))
             if os.path.exists(m['path']): return m['path'], a, m['title'], m['duration']
-        if job: job.step(None, 'téléchargement de l’extrait…')
+        if job: job.step(None, 'downloading the excerpt…')
         cmd = [sys.executable, '-m', 'yt_dlp', '-f', 'b[height<=480]/bv*[height<=480]+ba/b', '--merge-output-format', 'mp4',
                '--download-sections', f'*{a:.2f}-{b:.2f}', '--force-keyframes-at-cuts', '--ffmpeg-location', os.path.dirname(ff.ffmpeg()),
                '--no-playlist', '-o', os.path.join(d, 'ref.%(ext)s'), '--print', 'before_dl:%(title)s|%(duration)s', '--print', 'after_move:filepath', src]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=1200)
         lines = [l.strip() for l in r.stdout.splitlines() if l.strip()]
         path = next((l for l in lines if os.path.isabs(l) and os.path.exists(l)), None)
-        if not path: raise RuntimeError('vidéo impossible à télécharger : ' + (r.stderr or '')[-300:])
+        if not path: raise RuntimeError('could not download the video: ' + (r.stderr or '')[-300:])
         info = next((l for l in lines if '|' in l and not os.path.isabs(l)), '|')
         title, dur = info.rsplit('|', 1)
         m = {'path': path, 'title': title, 'duration': float(dur or 0) if dur.replace('.', '', 1).isdigit() else 0}
         json.dump(m, open(meta_f, 'w'))
         return path, a, m['title'], m['duration']
     path = os.path.abspath(os.path.expanduser(src))
-    if not os.path.isfile(path): raise RuntimeError(f'fichier introuvable : {src}')
+    if not os.path.isfile(path): raise RuntimeError(f'file not found: {src}')
     return path, 0.0, os.path.basename(path), _duration(path)
 
 
@@ -65,7 +65,7 @@ def _pcm(path, a=0.0, d=None):
     return np.frombuffer(ff.run(args, capture_output=True).stdout, np.float32)
 
 
-# ------------------------------------------------------------------ spectrogrammes
+# ------------------------------------------------------------------ spectrograms
 def _fb(n_fft=512, n=64, fmin=50, fmax=7600):
     global _FB
     if _FB is not None: return _FB
@@ -83,7 +83,7 @@ def _fb(n_fft=512, n=64, fmin=50, fmax=7600):
 
 
 def logmel(x, hop):
-    """-> (64, T) log-énergie par bande, une colonne toutes les hop/16000 s"""
+    """-> (64, T) log energy per band, one column every hop/16000 s"""
     n = 512
     if len(x) < n: x = np.pad(x, (0, n - len(x)))
     frames = np.lib.stride_tricks.sliding_window_view(x, n)[::hop]
@@ -96,7 +96,7 @@ def _norm_cols(m):
     return m / (np.linalg.norm(m, axis=0, keepdims=True) + 1e-6)
 
 
-# ------------------------------------------------------------------ bibliothèque : empreintes (en cache)
+# ------------------------------------------------------------------ library: fingerprints (cached)
 def _sfx_feats():
     lib = library.ready() or library.get()
     os.makedirs(FEAT, exist_ok=True)
@@ -125,12 +125,12 @@ def _music_feat(path):
     return m
 
 
-# ------------------------------------------------------------------ analyse
+# ------------------------------------------------------------------ analysis
 def onsets(x, max_n=32):
-    """évènements sonores (attaques) : montée d'énergie par bande (chaque bande pèse pareil, pour ne pas rater les
-    sons graves type boum) -> [(t, force, niveau dB)]"""
+    """sound events (onsets): energy rise per band (every band weighs the same, so low sounds like booms are not
+    missed) -> [(t, strength, level dB)]"""
     m = logmel(x, 160)
-    d = np.maximum(0, m[:, 2:] - m[:, :-2])                    # montée sur 20 ms
+    d = np.maximum(0, m[:, 2:] - m[:, :-2])                    # rise over 20 ms
     d = d / (d.std(axis=1, keepdims=True) + 1e-6)
     flux = np.concatenate([[0, 0], d.mean(axis=0)])
     if len(flux) < 5: return []
@@ -142,7 +142,7 @@ def onsets(x, max_n=32):
     for i in peaks:
         if all(abs(i - j) > 20 for j in keep): keep.append(i)
         if len(keep) >= max_n: break
-    # 2e détecteur : brusque montée d'énergie dans les graves (boum, impact sourd) que le flux spectral sous-estime
+    # 2nd detector: sudden energy rise in the low end (boom, dull impact) that spectral flux underestimates
     low = np.log10((10 ** m[:12]).sum(axis=0) + 1e-9)
     cand = []
     for i in range(20, len(low) - 1):
@@ -161,7 +161,7 @@ def onsets(x, max_n=32):
 
 
 def match_sfx(x, t, feats, top=3):
-    """sons de la bibliothèque les plus proches de l'évènement à t (s) dans x"""
+    """library sounds closest to the event at t (s) in x"""
     a = max(0, int((t - 0.03) * SR))
     ref = logmel(x[a:a + SR], 160)
     L = min(60, ref.shape[1])
@@ -197,26 +197,26 @@ def frame(path, t, w=640):
 
 
 def analyse(src, a=0.0, b=None, n_images=8, sounds=True, job=None, lang=None):
-    """analyse complète -> {'text': rapport, 'images': [jpeg]}"""
+    """full analysis -> {'text': report, 'images': [jpeg]}"""
     a = max(0.0, float(a or 0))
     b = float(b) if b else a + 90
     if b - a > 300: b = a + 300
     path, off, title, total = fetch(src, a, b, job)
-    la, lb = a - off, b - off                           # temps dans le fichier récupéré
+    la, lb = a - off, b - off                           # time within the fetched file
     if total and lb > total: lb = total; b = total + off
-    if lb - la < 1: raise RuntimeError("extrait trop court (vérifie debut / fin)")
-    lines = [f"Vidéo : {title}" + (f" (durée totale {total / 60:.1f} min)" if total else '') + f" — extrait analysé {a:.1f} → {b:.1f} s (temps de la vidéo)."]
-    # plans
+    if lb - la < 1: raise RuntimeError("excerpt too short (check start / end)")
+    lines = [f"Video: {title}" + (f" (total length {total / 60:.1f} min)" if total else '') + f" — analysed excerpt {a:.1f} → {b:.1f} s (video time)."]
+    # shots
     cs = cuts(path, la, lb)
-    lines.append(f"Changements de plan ({len(cs)}) : " + (', '.join(f'{c + off:.2f}' for c in cs[:40]) or 'aucun'))
-    # images
+    lines.append(f"Shot changes ({len(cs)}): " + (', '.join(f'{c + off:.2f}' for c in cs[:40]) or 'none'))
+    # frames
     times = sorted(set([round(c + 0.15, 2) for c in cs[:max(0, n_images - 2)]] + list(np.linspace(la + 0.3, lb - 0.3, max(2, n_images - len(cs[:n_images - 2]))))))[:n_images]
     images = [(t, frame(path, t)) for t in times]
     images = [(t, im) for t, im in images if im]
-    lines.append('Images jointes (dans l’ordre) aux temps : ' + ', '.join(f'{t + off:.2f}' for t, _ in images))
-    # paroles
+    lines.append('Attached frames (in order) at times: ' + ', '.join(f'{t + off:.2f}' for t, _ in images))
+    # speech
     try:
-        if job: job.step(None, 'transcription de l’extrait…')
+        if job: job.step(None, 'transcribing the excerpt…')
         from . import transcribe as ASR
         ws = ASR.chunk(path, la, lb, language=lang or None, prompt='', model=(store.settings().get('transcription') or {}).get('model', 'turbo'))
         groups, cur = [], []
@@ -224,32 +224,32 @@ def analyse(src, a=0.0, b=None, n_images=8, sounds=True, job=None, lang=None):
             if cur and (w[0] - cur[-1][1] > 0.8 or len(cur) > 14): groups.append(cur); cur = []
             cur.append(w)
         if cur: groups.append(cur)
-        lines.append('Paroles :' if groups else 'Paroles : aucune.')
+        lines.append('Speech:' if groups else 'Speech: none.')
         for g in groups: lines.append(f"  [{g[0][0] + off:.1f}] {''.join(x[2] for x in g).strip()}")
     except Exception as e:
-        lines.append(f'Paroles : transcription impossible ({e})')
+        lines.append(f'Speech: transcription failed ({e})')
     if sounds:
         x = _pcm(path, la, lb - la)
         bed, sep = x, False
         try:
             from . import voices as VX
             if VX.available():
-                if job: job.step(None, 'séparation voix / fond…')
+                if job: job.step(None, 'separating voice / background…')
                 _, rest = VX.separate(path, la, lb)
                 bed = _pcm(rest); sep = True
         except Exception:
             bed = x
         lvl = [20 * np.log10(np.sqrt(np.mean(c ** 2)) + 1e-9) for c in np.array_split(x, max(1, int(len(x) / SR)))]
-        lines.append('Niveau sonore par seconde (dB) : ' + ' '.join(f'{v:.0f}' for v in lvl[:300]))
-        if job: job.step(None, 'comparaison avec ta bibliothèque…')
+        lines.append('Sound level per second (dB): ' + ' '.join(f'{v:.0f}' for v in lvl[:300]))
+        if job: job.step(None, 'comparing with your library…')
         lib_ok = library.ready() is not None or bool(store.settings().get('libraries'))
         ev = onsets(bed, max(20, int(lb - la)))
         feats = _sfx_feats() if lib_ok and ev else []
-        lines.append(f"Évènements sonores ({len(ev)}, analysés sur {'le fond sans la voix' if sep else 'le mixage complet'}) — sons de ta bibliothèque reconnus :")
+        lines.append(f"Sound events ({len(ev)}, analysed on {'the background without the voice' if sep else 'the full mix'}) — sounds recognized from your library:")
         unknown = []
         for t, force, db in ev:
             m = match_sfx2(bed, t, feats, 8) if feats else []
-            groups = []                                  # même score = même fichier (nom court + nom de fichier)
+            groups = []                                  # same score = same file (short name + file name)
             for sc, k, lab, fname in m:
                 if groups and abs(groups[-1][0] - sc) < 1e-4: groups[-1][1].append((k, lab)); continue
                 groups.append((sc, [(k, lab)]))
@@ -257,22 +257,23 @@ def analyse(src, a=0.0, b=None, n_images=8, sounds=True, job=None, lang=None):
                 unknown.append(t + a)
                 continue
             sc, names = groups[0]
-            conf = 'très probable' if sc >= 0.68 else 'plausible'
+            conf = 'very likely' if sc >= 0.68 else 'plausible'
             alt = [g for g in groups[1:3] if g[0] >= 0.6]
-            lines.append(f"  {t + a:.2f} s  ({db:.0f} dB) : {conf} « {names[0][1]} » [{' = '.join(k for k, _ in names)}] (score {sc:.2f})"
-                         + (f" ; sinon {', '.join(f'« {g[1][0][1]} » [{g[1][0][0]}] {g[0]:.2f}' for g in alt)}" if alt else ''))
-        if unknown: lines.append(f"  autres évènements (bruits du jeu / de la vidéo, rien de ta bibliothèque) : {', '.join(f'{u:.1f}' for u in unknown[:40])}")
+            others = ', '.join(f'"{g[1][0][1]}" [{g[1][0][0]}] {g[0]:.2f}' for g in alt)
+            lines.append(f"  {t + a:.2f} s  ({db:.0f} dB): {conf} \"{names[0][1]}\" [{' = '.join(k for k, _ in names)}] (score {sc:.2f})"
+                         + (f'; otherwise {others}' if alt else ''))
+        if unknown: lines.append(f"  other events (game / video sounds, nothing from your library): {', '.join(f'{u:.1f}' for u in unknown[:40])}")
         if lib_ok:
             mm = match_music(x, win=6.0, hop=2.0)
             if mm:
-                lines.append('Musiques de ta bibliothèque reconnues :')
+                lines.append('Music recognized from your library:')
                 for t0, t1, name, n, pos, alts in mm:
-                    conf = 'certain' if n >= 40 else 'très probable' if n >= 15 else 'probable'
-                    lines.append(f"  {t0 + a:.1f} → {t1 + a:.1f} s : « {name} » ({conf}, {n} correspondances) — à {t0 + a:.1f} s on est à {max(0, pos):.1f} s du morceau"
-                                 + (f", donc le morceau démarre vers {t0 + a - pos:.1f} s" if pos >= 0 else f", le morceau démarre vers {t0 + a - pos:.1f} s"))
+                    conf = 'certain' if n >= 40 else 'very likely' if n >= 15 else 'likely'
+                    lines.append(f"  {t0 + a:.1f} → {t1 + a:.1f} s: \"{name}\" ({conf}, {n} matches) — at {t0 + a:.1f} s we are {max(0, pos):.1f} s into the track"
+                                 + (f", so the track starts around {t0 + a - pos:.1f} s" if pos >= 0 else f", the track starts around {t0 + a - pos:.1f} s"))
             else:
-                lines.append('Musiques de ta bibliothèque reconnues : aucune.')
-        lines.append("Les sons « très probable » et les musiques « certain » viennent presque sûrement de ta bibliothèque ; « plausible » : à vérifier en réécoutant.")
+                lines.append('Music recognized from your library: none.')
+        lines.append('"Very likely" sounds and "certain" music almost surely come from your library; "plausible": check by listening again.')
     return {'text': '\n'.join(lines), 'images': [im for _, im in images]}
 
 
@@ -280,7 +281,7 @@ _STACK = None
 
 
 def _stack(feats):
-    """empreintes des sons empilées (n, 64, 80) + masques des cases significatives"""
+    """stacked sound fingerprints (n, 64, 80) + masks of the significant cells"""
     global _STACK
     if _STACK is not None and _STACK[0] is feats: return _STACK[1]
     L = 80
@@ -295,8 +296,8 @@ def _stack(feats):
 
 
 def match_sfx2(x, t, feats, top=3):
-    """variante « présence » : un son présent dans un mélange y laisse au moins son énergie, case par case du
-    spectrogramme. On cherche le gain qui l'explique et on mesure à quel point chaque case reste cohérente."""
+    """"presence" variant: a sound present in a mix leaves at least its energy there, cell by cell of the
+    spectrogram. We look for the gain that explains it and measure how consistent each cell stays."""
     if not feats: return []
     F, M, ok = _stack(feats)
     a = max(0, int((t - 0.06) * SR))
@@ -316,22 +317,22 @@ def match_sfx2(x, t, feats, top=3):
     return sorted(((v[0], k, v[1], v[2]) for k, v in agg.items()), reverse=True)[:top]
 
 
-# ------------------------------------------------------------------ musique : empreintes « à la Shazam »
-# pics du spectrogramme -> paires (f1, f2, Δt) -> hachages. Une musique présente dans un mélange partage beaucoup de
-# hachages avec l'original, tous au même décalage : on compte les décalages communs.
+# ------------------------------------------------------------------ music: Shazam-style fingerprints
+# spectrogram peaks -> pairs (f1, f2, Δt) -> hashes. A track present in a mix shares many hashes with the original,
+# all at the same offset: we count the common offsets.
 FP_HOP = 256          # 16 ms
 
 
 def fingerprint(x):
-    """-> (hachages int64, instants en trames)"""
+    """-> (int64 hashes, times in frames)"""
     from scipy.ndimage import maximum_filter
     n = 1024
     if len(x) < n * 4: return np.zeros(0, np.int64), np.zeros(0, np.int32)
     frames = np.lib.stride_tricks.sliding_window_view(x, n)[::FP_HOP]
-    S = np.log(np.abs(np.fft.rfft(frames * np.hanning(n).astype(np.float32), axis=1))[:, 4:300] + 1e-6)   # ~60 Hz – 4,7 kHz
+    S = np.log(np.abs(np.fft.rfft(frames * np.hanning(n).astype(np.float32), axis=1))[:, 4:300] + 1e-6)   # ~60 Hz – 4.7 kHz
     peaks = (S == maximum_filter(S, size=(15, 21))) & (S > np.percentile(S, 80))
     t, f = np.nonzero(peaks)
-    keep = []                                   # au plus ~25 pics par seconde, les plus forts
+    keep = []                                   # at most ~25 peaks per second, the strongest
     per = int(SR / FP_HOP)
     for s0 in range(0, S.shape[0], per):
         sel = np.nonzero((t >= s0) & (t < s0 + per))[0]
@@ -354,7 +355,7 @@ _MIDX = None
 
 
 def music_index():
-    """index de toutes les musiques de la bibliothèque (premières 6 minutes), en cache"""
+    """index of all library music (first 6 minutes), cached"""
     global _MIDX
     lib = library.ready() or library.get()
     tracks = [t for t in lib['music'] if t.get('path') and os.path.exists(t['path'])]
@@ -379,7 +380,7 @@ def music_index():
 
 
 def match_music(x, win=10.0, hop=5.0):
-    """-> [(début, fin, nom, nb de correspondances, position dans le morceau, autres)] (temps en s dans x)"""
+    """-> [(start, end, name, match count, position in the track, alternatives)] (times in s within x)"""
     idx = music_index()
     if idx is None or len(x) < SR * 3: return []
     h, ts = fingerprint(x)
@@ -391,12 +392,12 @@ def match_music(x, win=10.0, hop=5.0):
         m = (ts * sec >= w0) & (ts * sec < w0 + win)
         cnt = {}
         for q in np.nonzero(m)[0]:
-            if hi[q] - lo[q] > 300: continue                 # hachage trop banal
+            if hi[q] - lo[q] > 300: continue                 # hash too common
             for r in range(lo[q], hi[q]):
-                key = (int(idx['i'][r]), int(round((idx['t'][r] - ts[q]) * sec * 4)))   # décalage à 0,25 s près
+                key = (int(idx['i'][r]), int(round((idx['t'][r] - ts[q]) * sec * 4)))   # offset to the nearest 0.25 s
                 cnt[key] = cnt.get(key, 0) + 1
         if not cnt: continue
-        # regroupe les décalages voisins (± 0,25 s)
+        # merge neighbouring offsets (± 0.25 s)
         best = {}
         for (ti, d), c in cnt.items():
             s = c + cnt.get((ti, d - 1), 0) + cnt.get((ti, d + 1), 0)
@@ -408,7 +409,7 @@ def match_music(x, win=10.0, hop=5.0):
             hits.append((w0, ti, d, s1, [idx['names'][r[1]] for r in ranked[1:3]]))
     out, cur = [], None
     for w0, ti, d, s1, alts in hits:
-        pos = w0 + d                                         # position dans le morceau au début de la fenêtre
+        pos = w0 + d                                         # position in the track at the start of the window
         if cur and cur['ti'] == ti and abs((cur['pos'] - cur['t0']) - (pos - w0)) < 1.0:
             cur['t1'] = w0 + win; cur['n'] += s1
         else:

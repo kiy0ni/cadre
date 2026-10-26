@@ -1,4 +1,4 @@
-// Réglages : IA, bibliothèques de médias, transcription et voix, accès à distance, raccourcis, à propos.
+// Settings: AI, media libraries, transcription and voices, remote access, shortcuts, about.
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { api, followJob, type AiStatus, type SystemInfo } from '../lib/api';
 import { desktop } from '../lib/desktop';
@@ -80,7 +80,7 @@ function AiSection({ ai, onChange }: { ai: AiStatus; onChange: () => void }) {
               <option value="claude-sonnet-5-5">{tx('Claude Sonnet 5.5')}</option>
               <option value="claude-fable-5-1">{tx('Claude Fable 5.1')}</option>
             </select></label>
-          <label className="field"><span>{tx('Réflexion (API)')}</span>
+          <label className="field"><span>{tx('Réflexion')}</span>
             <select className="input" value={s.effort} onChange={(e) => save({ effort: e.target.value })}>
               {[['low', tx('Rapide')], ['medium', tx('Normale')], ['high', tx('Approfondie')], ['xhigh', tx('Maximale')]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select></label>
@@ -139,7 +139,7 @@ function LibrariesSection({ sys, onChange }: { sys: SystemInfo; onChange: () => 
   );
 }
 
-/** recharge la bibliothèque dans l'éditeur (le serveur la reconstruit en tâche de fond) */
+/** reloads the library in the editor (the server rebuilds it in the background) */
 function refreshLibrary() {
   useStore.setState({ library: null });
   const tryLoad = async (n = 0) => {
@@ -210,7 +210,7 @@ function RemoteSection({ settings, onChange }: { settings: Record<string, unknow
       <Card title={tx('Accès à distance')}>
         <p className="small muted">{tx('Ouvre Cadre depuis un téléphone ou un autre ordinateur. Depuis un autre appareil que ce Mac, un mot de passe est toujours demandé.')}</p>
         <label className="field"><span>{tx('Adresse')}</span>
-          <div className="row"><input className="input grow" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mon-mac.tailnet.ts.net" />
+          <div className="row"><input className="input grow" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://my-computer.tailnet.ts.net" />
             <button className="btn" onClick={async () => { await api.saveSettings({ remoteUrl: url.trim() }); onChange(); notify(tx('Enregistré')); }}>{tx('Enregistrer')}</button>
             {url ? <button className="btn ghost" onClick={() => { navigator.clipboard.writeText(url); notify(tx('Lien copié')); }}><Icon name="copy" size={13} /></button> : null}
           </div></label>
@@ -233,6 +233,8 @@ export const SHORTCUTS: [string, string][] = [
   [tx('I  O'), tx('Point d\'entrée / de sortie (moniteur source)')], [',', tx('Insérer dans le montage')], ['.', tx('Ajouter en incrustation')],
   ['²', tx('Agrandir / réduire le panneau survolé')], ['V', tx('Outil sélection')], ['C', tx('Outil lame')], ['S', tx('Couper sous la tête de lecture')], ['M', tx('Marqueur')], ['Z', tx('Zoom sur le visage')],
   [tx('Suppr'), tx('Supprimer la sélection')], ['⌘D', tx('Dupliquer')], [tx('⌘Z  ⇧⌘Z'), tx('Annuler / rétablir')], ['⌘K', tx('Écrire à l\'assistant')], ['+  −', tx('Zoom de la timeline')], ['⇧Z', tx('Timeline entière')],
+  ['Q  W', tx('Rogner le début / la fin jusqu\'à la tête de lecture')], [tx('⇧Suppr'), tx('Supprimer en gardant l’espace')],
+  [tx('⌘ + glisser'), tx('Insérer un plan entre deux autres')], [tx('⌥ + glisser'), tx('Dupliquer en glissant')], ['⌘L', tx('Délier / rattacher l’audio')], [tx('Échap'), tx('Annuler le glisser en cours')],
 ];
 
 function Toggle({ label, help, v, on }: { label: string; help?: string; v: boolean; on: (v: boolean) => void }) {

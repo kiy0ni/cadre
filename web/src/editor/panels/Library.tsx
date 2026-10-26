@@ -1,4 +1,4 @@
-// Bibliothèque : musiques, sons et visuels des dossiers choisis dans Réglages. Écoute, recherche, glisser vers la timeline.
+// Library: music, sounds and visuals from the folders chosen in Settings. Preview, search, drag to the timeline.
 import { useMemo, useRef, useState } from 'react';
 import { Icon } from '../../lib/icons';
 import { pathOf, thumbUrl } from '../../lib/previews';
@@ -87,7 +87,7 @@ export function LibraryPanel() {
               <div key={s.name} className="rowi" draggable
                 onDragStart={(e) => e.dataTransfer.setData(DND, JSON.stringify({ type: 'file', path: pathOf(v.url), url: v.url, media: 'audio', name: label, dur: v.dur }))}>
                 <button className="btn icon sm ghost" onClick={() => { const x = s.variants[Math.floor(Math.random() * s.variants.length)]; play(s.name, x.url, x.start, x.dur); }}><Icon name={playing === s.name ? 'pause' : 'play'} size={11} /></button>
-                <div className="grow" style={{ minWidth: 0 }}><div className="ellipsis">{label}</div><div className="tiny dim ellipsis">{s.help}{s.variants.length > 1 ? ` · ${s.variants.length} variantes` : ''}</div></div>
+                <div className="grow" style={{ minWidth: 0 }}><div className="ellipsis">{label}</div><div className="tiny dim ellipsis">{s.help}{s.variants.length > 1 ? ` · ${tx('{0} variantes', s.variants.length)}` : ''}</div></div>
                 <button className="btn icon sm ghost" title={tx('Poser sur le plan à la tête de lecture')} onClick={() => sfxHere(s.name)}><Icon name="plus" size={12} /></button>
               </div>
             );

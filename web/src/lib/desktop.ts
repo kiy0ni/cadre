@@ -1,4 +1,4 @@
-// Pont avec l'appli de bureau (Electron, desktop/preload.cjs). Absent dans un navigateur : tout reste utilisable.
+// Bridge to the desktop app (Electron, desktop/preload.cjs). Absent in a browser: everything remains usable.
 export interface DesktopBridge {
   platform: string;
   pickFiles: (opts?: { images?: boolean }) => Promise<string[]>;

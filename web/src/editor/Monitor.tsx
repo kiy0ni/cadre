@@ -1,5 +1,5 @@
-// Moniteurs : programme (aperçu en direct du montage, Remotion Player) et source (rush brut, points d'entrée / sortie).
-// La tête de lecture et le timecode bougent hors de React (onFrame) : la lecture reste fluide même sur un gros projet.
+// Monitors: program (live preview of the edit, Remotion Player) and source (raw footage, in / out points).
+// The playhead and timecode move outside React (onFrame): playback stays smooth even on a large project.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Player, type PlayerRef } from '@remotion/player';
 import { Main } from '../remotion/Composition';
@@ -118,7 +118,7 @@ export function ProgramMonitor({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/** écran vide : la prochaine action, rien d'autre */
+/** empty screen: the next action, nothing else */
 function EmptyState() {
   const { props } = useComp();
   const setUi = useStore((s) => s.setUi);
@@ -135,8 +135,14 @@ function EmptyState() {
           <b>{tx('Importe des médias pour commencer')}</b>
           <span className="small">{tx('Vidéos, sons, images, ou un lien YouTube / Twitch.')}</span>
           <button className="btn primary" onClick={() => { setUi({ workspace: 'edit', lowerTab: 'project' }); setTimeout(() => (document.querySelector('[data-import]') as HTMLButtonElement | null)?.click(), 60); }}>
-            <Icon name="import" size={14} /> Importer
+            <Icon name="import" size={14} /> {tx('Importer')}
           </button>
+        </>
+      ) : aiJob ? (
+        <>
+          <span className="spin" />
+          <b>{tx('L’IA monte ta vidéo…')}</b>
+          <span className="small">{tx('La timeline se construit sous tes yeux ; tu pourras tout retoucher ensuite.')}</span>
         </>
       ) : (
         <>
@@ -144,11 +150,11 @@ function EmptyState() {
           <div className="row" style={{ gap: 8 }}>
             {ai?.provider ? (
               <button className="btn primary" disabled={!!aiJob} onClick={() => { setUi({ assistant: true }); askAi(tx('Monte la vidéo complète à partir des médias du projet, en suivant le style de montage.')); }}>
-                Monter avec l'assistant
+                {tx('Monter avec l’assistant')}
               </button>
             ) : null}
             <button className="btn" onClick={() => update((p) => { for (const s of p.sources) if (s.kind !== 'image') p.timeline.push({ id: Math.random().toString(36).slice(2, 12), type: 'clip', src: s.id, in: 0, out: s.duration, label: '', jump: null, speed: 1, captions: [], fx: [] }); })}>
-              Tout mettre dans la timeline
+              {tx('Tout mettre dans la timeline')}
             </button>
           </div>
         </>
@@ -157,7 +163,7 @@ function EmptyState() {
   );
 }
 
-// ---------------------------------------------------------------- moniteur source
+// ---------------------------------------------------------------- source monitor
 const marks = new Map<string, { a: number; b: number | null }>();
 
 export function SourceMonitor() {

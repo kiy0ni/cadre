@@ -1,6 +1,6 @@
-# Fabrique les installateurs à chaque étiquette « v* » (ex. git tag v1.0.0 && git push --tags) et les publie dans une
-# Release GitHub : Cadre-mac-apple-silicon.dmg, Cadre-mac-intel.dmg, Cadre-Setup-x64.exe.
-# Signature et notarisation : facultatives, activées si les secrets existent (voir README › Distribution).
+# Builds the installers for every "v*" tag (e.g. git tag v1.0.0 && git push --tags) and publishes them in a
+# GitHub Release: Cadre-mac-apple-silicon.dmg, Cadre-mac-intel.dmg, Cadre-Setup-x64.exe.
+# Signing and notarization are optional, enabled when the secrets exist (see README › Distribution).
 name: Release
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
       - name: Inno Setup
         if: runner.os == 'Windows'
         run: choco install innosetup -y --no-progress
-      - name: Certificat Apple (facultatif)
+      - name: Apple certificate (optional)
         if: runner.os == 'macOS' && env.MAC_CERT != ''
         env:
           MAC_CERT: ${{ secrets.MAC_CERT_P12_BASE64 }}

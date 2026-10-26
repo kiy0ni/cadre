@@ -1,10 +1,10 @@
-"""Aperçus pour l'éditeur : vignette d'un instant, planche de vignettes (filmstrip de la timeline), forme d'onde.
-Tout est calculé à la demande en tâche de fond et mis en cache (data/cache/previews) ; l'éditeur réessaie tant que
-ce n'est pas prêt. Fonctionne sur n'importe quel fichier autorisé (sources, banque de sons, VFX)."""
+"""Editor previews: thumbnail of a moment, thumbnail sheet (the timeline filmstrip), waveform.
+Everything is computed on demand in the background and cached (data/cache/previews); the editor retries until
+it is ready. Works on any allowed file (sources, sound library, VFX)."""
 import os, json, math, hashlib, subprocess, threading
 import numpy as np
 from .config import CACHE
-from .media import file_url, probe
+from .media import AUDIO_EXT, IMAGE_EXT, file_url, probe
 from . import ff
 
 D = f'{CACHE}/previews'
@@ -26,14 +26,14 @@ def _background(key, fn):
         _busy.add(key)
     def run():
         try: fn()
-        except Exception as e: print('aperçu impossible :', e, flush=True)
+        except Exception as e: print('preview failed:', e, flush=True)
         finally:
             with _lock: _busy.discard(key)
     threading.Thread(target=run, daemon=True).start()
 
 
 def thumb(path, t=0.0, w=320):
-    """vignette jpg -> chemin (synchrone : une seule image, rapide)"""
+    """jpg thumbnail -> path (synchronous: a single frame, fast)"""
     k = _key(path, round(t, 1), w)
     out = f'{D}/{k}.jpg'
     if not os.path.exists(out):
@@ -47,12 +47,16 @@ def thumb(path, t=0.0, w=320):
 
 
 def sprite(path):
-    """planche de vignettes 160x90 (20 colonnes), une toutes les `interval` s (max 900 vignettes)."""
+    """thumbnail sheet 160x90 (20 columns), one every `interval` s (max 900 thumbnails)."""
     k = _key(path, 'sprite')
     meta = f'{D}/{k}.sprite.json'
     if os.path.exists(meta): return json.load(open(meta))
+    if os.path.splitext(path)[1].lower() in AUDIO_EXT: return {'none': True}     # audio file: no image to show
     def build():
-        dur = probe(path)['duration'] or 1
+        info = probe(path)
+        if info['kind'] != 'video':
+            json.dump({'none': True}, open(meta, 'w')); return
+        dur = info['duration'] or 1
         interval = max(1.0, dur / 900)
         n = max(1, math.ceil(dur / interval))
         rows = math.ceil(n / COLS)
@@ -67,10 +71,11 @@ def sprite(path):
 
 
 def peaks(path):
-    """forme d'onde : 20 valeurs par seconde (0-255)"""
+    """waveform: 20 values per second (0-255)"""
     k = _key(path, 'peaks')
     out = f'{D}/{k}.peaks.json'
     if os.path.exists(out): return json.load(open(out))
+    if os.path.splitext(path)[1].lower() in IMAGE_EXT: return {'rate': PEAKS_PER_S, 'peaks': []}   # an image has no sound
     def build():
         raw = ff.run(['-loglevel', 'error', '-i', path, '-vn', '-ac', '1', '-ar', '8000', '-f', 'f32le', '-'],
                      capture_output=True, check=True).stdout

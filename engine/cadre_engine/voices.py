@@ -1,5 +1,5 @@
-"""Voix : empreintes ECAPA (SpeechBrain) pour savoir qui parle, et séparation voix / reste (Demucs).
-Modules optionnels (« modules voix », ~2 Go) : si absents, les fonctions lèvent une erreur claire."""
+"""Voices: ECAPA embeddings (SpeechBrain) to tell who is speaking, and voice / background separation (Demucs).
+Optional modules ("voice modules", ~2 GB): if missing, the functions raise a clear error."""
 import hashlib
 import os
 import struct
@@ -27,7 +27,7 @@ def available():
 
 def _need():
     if not available():
-        raise RuntimeError("modules voix non installés (Réglages › Modules voix)")
+        raise RuntimeError("voice modules not installed (Settings › Voice modules)")
 
 
 def model():
@@ -50,7 +50,7 @@ def speech_frames(x, hop=0.02):
 
 
 def windows(x):
-    """fenêtres de 1,2 s couvrant de la parole"""
+    """1.2 s windows covering speech"""
     db, sp = speech_frames(x)
     out, t, dur = [], 0.0, len(x) / SR
     while t + WIN <= dur + 1e-6:
@@ -71,7 +71,7 @@ def embed(x, wins):
     return e / np.linalg.norm(e, axis=1, keepdims=True)
 
 
-# ------------------------------------------------------------------ séparation voix / reste (Demucs)
+# ------------------------------------------------------------------ voice / background separation (Demucs)
 def key(path, a, b):
     return hashlib.md5(f'{path}|{a:.2f}|{b:.2f}'.encode()).hexdigest()[:14]
 
@@ -88,7 +88,8 @@ def _write16(path, x, sr):
 
 
 def separate(path, a, b):
-    """-> (voix.wav, reste.wav) en cache, 44,1 kHz. Demucs htdemucs « two-stems » (GPU Apple ou NVIDIA si présent)."""
+    """-> (voice.wav, rest.wav) cached, 44.1 kHz. Demucs htdemucs "two-stems" (Apple or NVIDIA GPU if present).
+    Cache file names (_voix / _jeu / _lot_) are kept as is so existing caches stay valid."""
     _need()
     os.makedirs(STEMS, exist_ok=True)
     k = key(path, a, b)
@@ -112,7 +113,7 @@ def separate(path, a, b):
 
 
 def audio16(path, a, b, duration):
-    """mono 16 kHz de [a, b] : piste voix séparée si elle existe (plus fiable), sinon le son d'origine."""
+    """mono 16 kHz of [a, b]: the separated voice track if it exists (more reliable), otherwise the original audio."""
     sep = f'{STEMS}/{key(path, 0.0, round(float(duration), 2))}_voix.wav'
     if os.path.exists(sep):
         from scipy.signal import resample_poly
