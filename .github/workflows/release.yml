@@ -7,6 +7,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: write          # create the GitHub Release and upload the installers
+
 jobs:
   build:
     strategy:
@@ -14,7 +17,7 @@ jobs:
       matrix:
         include:
           - { os: macos-14, script: 'dist:mac' }
-          - { os: macos-13, script: 'dist:mac-intel' }
+          - { os: macos-15-intel, script: 'dist:mac-intel' }
           - { os: windows-latest, script: 'dist:win' }
     runs-on: ${{ matrix.os }}
     steps:
@@ -26,7 +29,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Inno Setup
         if: runner.os == 'Windows'
-        run: choco install innosetup -y --no-progress
+        run: |
+          choco install innosetup -y --no-progress
+          "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
       - name: Apple certificate (optional)
         if: runner.os == 'macOS' && env.MAC_CERT != ''
         env:
@@ -52,6 +57,9 @@ jobs:
       - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          name: Cadre ${{ github.ref_name }}
+          body_path: .github/release-notes.md
+          fail_on_unmatched_files: false
           files: |
             desktop/dist/*.dmg
             desktop/dist/*.exe
